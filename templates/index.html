@@ -15,9 +15,9 @@
                 <div class="logo">
                     <span class="logo-icon">⚡</span>
                     <h1>XCRDownloader</h1>
-                    <span class="badge">v1.0</span>
+                    <span class="badge">v1.1</span>
                 </div>
-                <p class="subtitle">Free · Unlimited · No API Keys · Instagram · TikTok · X · Pinterest</p>
+                <p class="subtitle">Free · Unlimited · No API Keys · Instagram · TikTok · X · Pinterest · YouTube · SoundCloud</p>
             </div>
         </header>
 
@@ -37,12 +37,22 @@
                 <div class="tab-content active" id="tab-single">
                     <div class="input-group">
                         <div class="input-wrapper">
-                            <input type="text" id="url-input" placeholder="Paste any URL — Instagram Reel, TikTok, Tweet, Pinterest Pin..." autocomplete="off">
-                            <button class="btn btn-detect" id="btn-detect" title="Detect Platform">
+                            <input type="text" id="url-input" placeholder="Paste any URL — YouTube, Instagram, TikTok, SoundCloud, X, Pinterest..." autocomplete="off">
+                            <button class="btn btn-detect" id="btn-detect" title="Detect & Preview">
                                 <span class="detect-icon">🔍</span>
                             </button>
                         </div>
                         <div class="platform-detect" id="platform-detect"></div>
+                    </div>
+
+                    <!-- Preview Card (hidden until URL is detected) -->
+                    <div class="preview-card" id="preview-card" style="display:none;">
+                        <img id="preview-thumb" class="preview-thumb" src="" alt="">
+                        <div class="preview-info">
+                            <div class="preview-title" id="preview-title"></div>
+                            <div class="preview-meta" id="preview-meta"></div>
+                            <div class="preview-desc" id="preview-desc"></div>
+                        </div>
                     </div>
 
                     <div class="options-row">
@@ -70,7 +80,7 @@
 
                 <!-- Batch Tab -->
                 <div class="tab-content" id="tab-batch">
-                    <textarea id="batch-urls" rows="6" placeholder="Paste multiple URLs (one per line)&#10;https://www.instagram.com/reel/ABC123/&#10;https://www.tiktok.com/@user/video/123&#10;https://twitter.com/user/status/456"></textarea>
+                    <textarea id="batch-urls" rows="6" placeholder="Paste multiple URLs (one per line)&#10;https://www.youtube.com/watch?v=abc&#10;https://www.instagram.com/reel/ABC123/&#10;https://soundcloud.com/artist/track&#10;https://www.tiktok.com/@user/video/123"></textarea>
                     <div class="options-row">
                         <div class="option-group">
                             <label>Quality</label>
@@ -90,6 +100,11 @@
 
             <!-- Supported Platforms -->
             <section class="platforms-grid">
+                <div class="platform-card" data-platform="youtube">
+                    <div class="platform-icon">▶️</div>
+                    <h3>YouTube</h3>
+                    <p>Videos · Music · Playlists · Shorts</p>
+                </div>
                 <div class="platform-card" data-platform="instagram">
                     <div class="platform-icon">📸</div>
                     <h3>Instagram</h3>
@@ -99,6 +114,11 @@
                     <div class="platform-icon">🎵</div>
                     <h3>TikTok</h3>
                     <p>Videos · No Watermark · Audio</p>
+                </div>
+                <div class="platform-card" data-platform="soundcloud">
+                    <div class="platform-icon">🔊</div>
+                    <h3>SoundCloud</h3>
+                    <p>Tracks · Playlists · Albums</p>
                 </div>
                 <div class="platform-card" data-platform="twitter">
                     <div class="platform-icon">🐦</div>
@@ -146,7 +166,7 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="container">
-                <p>XCRDownloader v1.0.0 — Free & Open Source</p>
+                <p>XCRDownloader v1.1.0 — Free & Open Source</p>
                 <p class="footer-links">
                     <a href="https://github.com/MohammadAliMehri/XCRDownloader" target="_blank">GitHub</a>
                     <span>·</span>

@@ -10,8 +10,10 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path (works from venv, exe, or direct run)
+_here = os.path.dirname(os.path.abspath(__file__))
+if _here not in sys.path:
+    sys.path.insert(0, _here)
 
 from src.engine import DownloaderEngine
 from src.utils.helpers import print_banner, format_filesize, detect_platform
@@ -28,6 +30,9 @@ Examples:
   xcrdownloader https://www.tiktok.com/@user/video/1234567890
   xcrdownloader https://twitter.com/user/status/1234567890
   xcrdownloader https://www.pinterest.com/pin/1234567890/
+  xcrdownloader https://www.youtube.com/watch?v=dQw4w9WgXcQ
+  xcrdownloader https://music.youtube.com/watch?v=abc123
+  xcrdownloader https://soundcloud.com/artist/track-name
   xcrdownloader -u URL1 -u URL2 -u URL3
   xcrdownloader -f urls.txt
   xcrdownloader --info URL
@@ -43,7 +48,7 @@ Examples:
     parser.add_argument("-o", "--output", default="downloads",
                         help="Output directory (default: downloads)")
     parser.add_argument("--audio", action="store_true", help="Extract audio only (MP3)")
-    parser.add_argument("--info", action="store_true", help="Get info without downloading")
+    parser.add_argument("--info", action="store_true", help="Get info/preview without downloading")
     parser.add_argument("--detect", action="store_true", help="Detect platform only")
     parser.add_argument("--workers", type=int, default=3,
                         help="Parallel download workers (default: 3)")
@@ -51,7 +56,7 @@ Examples:
     parser.add_argument("--port", type=int, default=8080, help="Web UI port (default: 8080)")
     parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.0.0")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.1.0")
 
     args = parser.parse_args()
 
@@ -60,26 +65,43 @@ Examples:
     if args.url:
         all_urls.extend(args.url)
     if args.file:
-        with open(args.file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    all_urls.append(line)
+        try:
+            with open(args.file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        all_urls.append(line)
+        except FileNotFoundError:
+            print(f"\n  ❌ File not found: {args.file}\n")
+            return
+        except Exception as e:
+            print(f"\n  ❌ Error reading file: {e}\n")
+            return
+
+    # No args = double-click = launch Web UI automatically
+    if not all_urls and not args.web and not args.file:
+        args.web = True
 
     # Launch web UI if requested
     if args.web:
+        import webbrowser
+        import threading
         from src.web import create_app
         print_banner()
-        print(f"\n  🌐 Starting XCRDownloader Web UI on http://{args.host}:{args.port}")
-        print(f"  📁 Downloads will be saved to: {os.path.abspath(args.output)}\n")
+        port = args.port
+        host = args.host
+        url = f"http://127.0.0.1:{port}"
+        print(f"\n  🌐 Starting XCRDownloader Web UI on {url}")
+        print(f"  📁 Downloads will be saved to: {os.path.abspath(args.output)}")
+        print(f"  🖥️  Browser will open automatically...")
+        print(f"  ⛔ Press Ctrl+C to stop\n")
         app = create_app(args.output)
-        app.run(host=args.host, port=args.port, debug=False)
-        return
-
-    # Need at least one URL for non-web mode
-    if not all_urls:
-        print_banner()
-        parser.print_help()
+        # Open browser after a short delay
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+        try:
+            app.run(host=host, port=port, debug=False)
+        except KeyboardInterrupt:
+            print("\n  👋 Shutting down...")
         return
 
     print_banner()
@@ -96,24 +118,39 @@ Examples:
                 print(f"     URL: {info['url']}")
         return
 
-    # Info mode
+    # Info / Preview mode
     if args.info:
         for url in all_urls:
-            print(f"\n  📋 Fetching info: {url}")
-            result = engine.get_info(url)
+            print(f"\n  📋 Fetching preview: {url}")
+            try:
+                result = engine.get_info(url)
+            except Exception as e:
+                print(f"  ❌ Error: {e}")
+                continue
             if args.json:
                 print(json.dumps(result, indent=2, default=str))
             else:
                 if result.get("success"):
+                    preview = result.get("preview", {})
                     info = result.get("info", {})
-                    print(f"  ✅ Platform: {result.get('platform', 'Unknown')}")
-                    if isinstance(info, dict):
-                        print(f"     Title: {info.get('title', 'N/A')}")
-                        print(f"     Uploader: {info.get('uploader', 'N/A')}")
-                        if info.get("duration"):
-                            print(f"     Duration: {info['duration']}s")
-                        if info.get("view_count"):
-                            print(f"     Views: {info['view_count']:,}")
+                    p = preview or info
+                    platform = result.get("platform", "Unknown").upper()
+                    print(f"  ✅ Platform: {platform}")
+                    print(f"     Title:    {p.get('title', 'N/A')}")
+                    print(f"     Author:   {p.get('uploader', 'N/A')}")
+                    if p.get("duration_str"):
+                        print(f"     Duration: {p['duration_str']}")
+                    elif p.get("duration"):
+                        print(f"     Duration: {p['duration']}s")
+                    if p.get("view_count"):
+                        print(f"     Views:    {p['view_count']:,}")
+                    if p.get("like_count"):
+                        print(f"     Likes:    {p['like_count']:,}")
+                    if p.get("thumbnail"):
+                        print(f"     Thumb:    {p['thumbnail']}")
+                    if p.get("description"):
+                        desc = p["description"][:200].replace("\n", " ")
+                        print(f"     Desc:     {desc}")
                 else:
                     print(f"  ❌ Error: {result.get('error', 'Unknown')}")
         return

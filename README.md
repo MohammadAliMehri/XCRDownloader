@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.0.0-6c5ce7?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dHk+JiN4MjZhMTs8L3RleHQ+PC9zdmc+" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.1.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -9,16 +9,17 @@
 
 <p align="center">
   <strong>Free · Unlimited · No API Keys · No Rate Limits</strong><br>
-  Download videos, images, and audio from Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.
+  Download videos, music, and images from YouTube, SoundCloud, Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.
 </p>
 
 <p align="center">
   <a href="#features">Features</a> ·
+  <a href="#quick-start">Quick Start</a> ·
   <a href="#installation">Installation</a> ·
-  <a href="#usage">Usage</a> ·
   <a href="#web-ui">Web UI</a> ·
+  <a href="#cli">CLI</a> ·
   <a href="#docker">Docker</a> ·
-  <a href="#supported-platforms">Platforms</a>
+  <a href="#build-exe">Build .exe</a>
 </p>
 
 ---
@@ -26,203 +27,191 @@
 ## ✨ Features
 
 - 🚀 **No API keys required** — works out of the box, completely free
-- 📥 **Instagram** — Reels, Stories, Posts, IGTV
+- ▶️ **YouTube** — Videos, Music, Playlists, Shorts (with preview)
+- 🎶 **YouTube Music** — Auto-converts to high-quality MP3
+- 🔊 **SoundCloud** — Tracks, Playlists, Albums (auto MP3)
+- 📸 **Instagram** — Reels, Stories, Posts, IGTV
 - 🎵 **TikTok** — Videos without watermark, audio extraction
-- 🐦 **X/Twitter** — Videos, images, GIFs, threads
-- 📌 **Pinterest** — Videos, images, GIFs, pins
-- 🌐 **1800+ sites** — YouTube, Reddit, Facebook, Vimeo, and more via yt-dlp
+- 🐦 **X/Twitter** — Videos, images, GIFs
+- 📌 **Pinterest** — Videos, images, GIFs
+- 🌐 **1800+ sites** — Reddit, Facebook, Vimeo, and more via yt-dlp
+- 🔍 **Auto Preview** — paste a URL → see title, thumbnail, duration, views
 - 🎯 **Batch download** — download multiple URLs at once
 - 🎨 **Web UI** — modern dark-themed web interface
 - 💻 **CLI** — powerful command-line interface
+- 📦 **Standalone .exe** — double-click to launch Web UI, no Python needed
 - 🐳 **Docker** — ready to deploy
 - ⚡ **Parallel downloads** — configurable worker threads
 - 🎧 **Audio extraction** — extract MP3 from any video
 - 📊 **Quality selection** — Best, HD (1080p), SD (480p)
+- 🛡️ **Error handling** — human-readable error messages
+
+## 🚀 Quick Start
+
+### Option A: Download the .exe (easiest)
+
+1. Download `XCRDownloader.exe` from [Releases](https://github.com/MohammadAliMehri/XCRDownloader/releases)
+2. Double-click to open the Web UI in your browser
+3. Paste any URL and click Download
+
+### Option B: Run from source
+
+```bash
+# Clone
+git clone https://github.com/MohammadAliMehri/XCRDownloader.git
+cd XCRDownloader
+
+# One-command setup (installs venv + deps + builds .exe)
+# Windows:
+setup.bat
+
+# Linux/macOS:
+chmod +x setup.sh && ./setup.sh
+
+# Then run:
+python cli.py <URL>
+python cli.py --web
+```
 
 ## 📦 Installation
 
-### Option 1: pip install (recommended)
+### Automated Setup (recommended)
+
+**Windows:**
+```cmd
+setup.bat
+```
+
+**Linux/macOS:**
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+Both scripts will:
+1. Check Python 3.10+ is installed
+2. Check/install ffmpeg
+3. Create a virtual environment (`venv/`)
+4. Install all Python dependencies
+5. Optionally build a standalone `.exe`
+
+### Manual Install
 
 ```bash
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-### Option 2: Docker
-
-```bash
-docker build -t xcrdownloader .
-docker run -p 8080:8080 -v ./downloads:/app/downloads xcrdownloader
-```
-
-### Option 3: Docker Compose
+### Docker
 
 ```bash
 docker-compose up -d
-```
-
-### Prerequisites
-
-- Python 3.10+
-- FFmpeg (for video/audio merging and conversion)
-
-Install FFmpeg:
-```bash
-# Windows (winget)
-winget install ffmpeg
-
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt install ffmpeg
-```
-
-## 💻 Usage
-
-### CLI — Single Download
-
-```bash
-# Instagram Reel
-python cli.py https://www.instagram.com/reel/ABC123/
-
-# TikTok Video (no watermark)
-python cli.py https://www.tiktok.com/@user/video/1234567890
-
-# X/Twitter Video
-python cli.py https://twitter.com/user/status/1234567890
-
-# Pinterest Pin
-python cli.py https://www.pinterest.com/pin/1234567890/
-```
-
-### CLI — Quality & Format Options
-
-```bash
-# HD quality
-python cli.py --quality hd https://www.instagram.com/reel/ABC123/
-
-# Audio only (MP3)
-python cli.py --audio https://www.tiktok.com/@user/video/123
-
-# Custom output directory
-python cli.py -o /path/to/downloads https://twitter.com/user/status/123
-```
-
-### CLI — Batch Download
-
-```bash
-# Multiple URLs
-python cli.py -u URL1 -u URL2 -u URL3
-
-# From file
-python cli.py -f urls.txt
-
-# With parallel workers
-python cli.py -f urls.txt --workers 5
-```
-
-### CLI — Info & Detection
-
-```bash
-# Get info without downloading
-python cli.py --info https://www.instagram.com/reel/ABC123/
-
-# Detect platform
-python cli.py --detect https://www.tiktok.com/@user/video/123
-
-# JSON output
-python cli.py --json https://twitter.com/user/status/123
+# Open http://localhost:8080
 ```
 
 ## 🌐 Web UI
 
-Launch the web interface:
-
 ```bash
 python cli.py --web
-python cli.py --web --port 9090 --host 127.0.0.1
+python cli.py --web --port 9090
 ```
 
-Then open `http://localhost:8080` in your browser.
-
 Features:
+- 🔍 **Auto-preview** — paste a URL and see title, thumbnail, duration, views before downloading
 - 🎨 Modern dark theme
-- 📋 Paste & download — single or batch
-- 🔍 Auto platform detection
+- 📋 Single & batch download
 - 📊 Download history & stats
-- ⏳ Real-time progress tracking
+- ⏳ Real-time progress
 - 📱 Mobile responsive
 
-## 🐳 Docker
+## 💻 CLI
 
 ```bash
-# Build
-docker build -t xcrdownloader .
+# Single download
+python cli.py https://www.youtube.com/watch?v=abc
+python cli.py https://soundcloud.com/artist/track
+python cli.py https://www.instagram.com/reel/ABC123/
+python cli.py https://www.tiktok.com/@user/video/123
 
-# Run
-docker run -d \
-  -p 8080:8080 \
-  -v $(pwd)/downloads:/app/downloads \
-  --name xcrdownloader \
-  xcrdownloader
+# Audio only (MP3)
+python cli.py --audio https://www.youtube.com/watch?v=abc
+python cli.py --audio https://soundcloud.com/artist/track
 
-# Or with docker-compose
-docker-compose up -d
+# Quality selection
+python cli.py --quality hd https://www.youtube.com/watch?v=abc
+
+# Preview without downloading
+python cli.py --info https://www.youtube.com/watch?v=abc
+
+# Batch download
+python cli.py -u URL1 -u URL2 -u URL3
+python cli.py -f urls.txt
+
+# JSON output
+python cli.py --json --info URL
+```
+
+## 🔨 Build .exe
+
+```bash
+# From venv:
+python build.py
+
+# Output: dist/XCRDownloader.exe (29 MB)
+# Double-click opens Web UI automatically
+# No CMD window — runs in background
 ```
 
 ## 📸 Supported Platforms
 
-| Platform | Content Types | Method |
-|----------|--------------|--------|
-| 📸 Instagram | Reels, Stories, Posts, IGTV | yt-dlp |
-| 🎵 TikTok | Videos (no watermark), Audio | yt-dlp |
-| 🐦 X/Twitter | Videos, Images, GIFs | yt-dlp |
-| 📌 Pinterest | Videos, Images, GIFs | Custom scraper + yt-dlp |
-| 🌐 1800+ more | YouTube, Reddit, Facebook... | yt-dlp |
-
-## 🔧 Configuration
-
-Create a `config.json` (optional):
-
-```json
-{
-  "output_dir": "downloads",
-  "quality": "best",
-  "max_workers": 3,
-  "web_port": 8080,
-  "web_host": "0.0.0.0"
-}
-```
+| Platform | Content Types | Audio Auto |
+|----------|--------------|------------|
+| ▶️ YouTube | Videos, Music, Playlists, Shorts | ✅ for YT Music |
+| 🎶 YouTube Music | Songs, Albums, Playlists | ✅ MP3 |
+| 🔊 SoundCloud | Tracks, Playlists, Albums | ✅ MP3 |
+| 📸 Instagram | Reels, Stories, Posts, IGTV | |
+| 🎵 TikTok | Videos (no watermark), Audio | |
+| 🐦 X/Twitter | Videos, Images, GIFs | |
+| 📌 Pinterest | Videos, Images, GIFs | |
+| 🌐 1800+ more | YouTube, Reddit, Facebook... | |
 
 ## 📁 Project Structure
 
 ```
 XCRDownloader/
-├── cli.py                 # CLI entry point
+├── cli.py                 # CLI entry point (+ auto Web UI launcher)
 ├── run.py                 # Quick start script
+├── build.py               # PyInstaller .exe builder
+├── setup.bat              # Windows automated setup
+├── setup.sh               # Linux/macOS automated setup
 ├── requirements.txt       # Python dependencies
 ├── Dockerfile             # Docker build
 ├── docker-compose.yml     # Docker Compose
 ├── src/
 │   ├── __init__.py
-│   ├── engine.py          # Download engine (router)
-│   ├── web.py             # Flask Web UI backend
+│   ├── engine.py          # Download engine + error humanizer
+│   ├── web.py             # Flask Web UI backend (+ /api/preview)
 │   ├── platforms/
-│   │   ├── __init__.py
 │   │   ├── base.py        # Base downloader (yt-dlp)
 │   │   ├── instagram.py   # Instagram handler
 │   │   ├── tiktok.py      # TikTok handler
 │   │   ├── twitter.py     # X/Twitter handler
-│   │   ├── pinterest.py   # Pinterest handler
+│   │   ├── pinterest.py   # Pinterest handler (custom scraper)
+│   │   ├── youtube.py     # YouTube + YouTube Music handler
+│   │   ├── soundcloud.py  # SoundCloud handler
 │   │   └── generic.py     # Generic (1800+ sites)
 │   └── utils/
-│       ├── __init__.py
-│       └── helpers.py     # Utility functions
+│       └── helpers.py     # Platform detection, formatting
 ├── templates/
 │   └── index.html         # Web UI template
 ├── static/
-│   ├── css/style.css      # Dark theme styles
-│   └── js/app.js          # Frontend logic
+│   ├── css/style.css      # Dark theme + preview card
+│   └── js/app.js          # Frontend + auto-preview
 └── downloads/             # Downloaded files (gitignored)
 ```
 

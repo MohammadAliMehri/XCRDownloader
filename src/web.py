@@ -42,6 +42,38 @@ def create_app(output_dir="downloads"):
         result = engine.detect(url)
         return jsonify(result)
 
+    @app.route("/api/preview", methods=["POST"])
+    def api_preview():
+        """Auto-preview: get metadata + thumbnail for a URL."""
+        data = request.get_json(force=True)
+        url = data.get("url", "").strip()
+        if not url:
+            return jsonify({"error": "No URL provided"}), 400
+        result = engine.get_info(url)
+        # Flatten preview data for the frontend
+        out = {
+            "success": result.get("success", False),
+            "platform": result.get("platform", "generic"),
+            "url": url,
+            "error": result.get("error"),
+        }
+        preview = result.get("preview", {})
+        if preview:
+            out["preview"] = preview
+        elif result.get("success"):
+            info = result.get("info", {})
+            if isinstance(info, dict):
+                out["preview"] = {
+                    "title": info.get("title", "Unknown"),
+                    "uploader": info.get("uploader") or info.get("channel", "Unknown"),
+                    "duration": info.get("duration"),
+                    "thumbnail": info.get("thumbnail") or (
+                        info.get("thumbnails", [{}])[-1].get("url") if info.get("thumbnails") else None
+                    ),
+                    "view_count": info.get("view_count"),
+                }
+        return jsonify(out)
+
     @app.route("/api/info", methods=["POST"])
     def api_info():
         """Get info about a URL without downloading."""

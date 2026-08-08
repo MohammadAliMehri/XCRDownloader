@@ -22,6 +22,9 @@ def main():
      python cli.py https://www.instagram.com/reel/ABC123/
      python cli.py --quality hd https://www.tiktok.com/@user/video/123
      python cli.py --audio https://twitter.com/user/status/456
+     python cli.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
+     python cli.py https://music.youtube.com/watch?v=abc
+     python cli.py https://soundcloud.com/artist/track-name
 
   2. Web UI Mode:
      python cli.py --web
@@ -31,14 +34,17 @@ def main():
      python cli.py -u URL1 -u URL2 -u URL3
      python cli.py -f urls.txt
 
-  4. Get Info (no download):
+  4. Preview / Info (no download):
      python cli.py --info <URL>
 
   Supported Platforms:
-    📸 Instagram  — Reels, Stories, Posts, IGTV
-    🎵 TikTok     — Videos, No Watermark, Audio
-    🐦 X/Twitter  — Videos, Images, GIFs
-    📌 Pinterest  — Videos, Images, GIFs
+    ▶️  YouTube     — Videos, Music, Playlists, Shorts
+    🎶 YT Music    — Songs, Albums, Playlists (auto MP3)
+    🔊 SoundCloud  — Tracks, Playlists, Albums (auto MP3)
+    📸 Instagram   — Reels, Stories, Posts, IGTV
+    🎵 TikTok      — Videos, No Watermark, Audio
+    🐦 X/Twitter   — Videos, Images, GIFs
+    📌 Pinterest   — Videos, Images, GIFs
     🌐 1800+ sites via yt-dlp
 
   ═══════════════════════════════════════════════════

@@ -1,5 +1,6 @@
 /**
- * XCRDownloader — Web UI JavaScript
+ * XCRDownloader — Web UI JavaScript v1.1
+ * Auto-preview, platform detection, download management
  */
 document.addEventListener('DOMContentLoaded', () => {
     // Elements
@@ -11,6 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const qualitySelect = document.getElementById('quality');
     const formatSelect = document.getElementById('format');
     const platformDetect = document.getElementById('platform-detect');
+    const previewCard = document.getElementById('preview-card');
+    const previewThumb = document.getElementById('preview-thumb');
+    const previewTitle = document.getElementById('preview-title');
+    const previewMeta = document.getElementById('preview-meta');
+    const previewDesc = document.getElementById('preview-desc');
     const progressSection = document.getElementById('progress-section');
     const progressBar = document.getElementById('progress-bar');
     const progressStatus = document.getElementById('progress-status');
@@ -21,8 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const PLATFORM_ICONS = {
         instagram: '📸', tiktok: '🎵', twitter: '🐦',
-        pinterest: '📌', generic: '🌐'
+        pinterest: '📌', youtube: '▶️', soundcloud: '🔊',
+        youtube_music: '🎶', generic: '🌐'
     };
+
+    let currentPreviewUrl = '';
 
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
@@ -34,40 +43,125 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Platform detection
+    // ---- Auto-detect + Preview on URL input ----
     let detectTimer;
     urlInput.addEventListener('input', () => {
         clearTimeout(detectTimer);
         const url = urlInput.value.trim();
+        hidePreview();
         if (!url) { platformDetect.innerHTML = ''; return; }
-        detectTimer = setTimeout(() => detectPlatform(url), 300);
+        if (url.startsWith('http')) {
+            detectTimer = setTimeout(() => fetchPreview(url), 500);
+        }
     });
 
     btnDetect.addEventListener('click', () => {
         const url = urlInput.value.trim();
-        if (url) detectPlatform(url);
+        if (url) fetchPreview(url);
     });
 
-    async function detectPlatform(url) {
+    async function fetchPreview(url) {
+        platformDetect.innerHTML = '<span style="color:var(--text-muted)">⏳ Detecting...</span>';
+        hidePreview();
+
         try {
-            const resp = await fetch('/api/detect', {
+            // Step 1: fast local detect
+            const detResp = await fetch('/api/detect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
             });
-            const data = await resp.json();
-            const platform = data.platform || 'generic';
+            const det = await detResp.json();
+            const platform = det.platform || 'generic';
             const icon = PLATFORM_ICONS[platform] || '🌐';
             platformDetect.innerHTML = `
                 <span class="platform-badge ${platform}">${icon} ${platform.toUpperCase()}</span>
-                <span style="margin-left:8px;color:var(--text-muted)">→ ${data.handler}</span>
+                <span style="margin-left:8px;color:var(--text-muted)">→ ${det.handler}</span>
+                <span class="preview-loading" style="margin-left:12px;color:var(--text-muted)">⏳ Loading preview...</span>
             `;
+
+            // Step 2: fetch preview metadata (slower, server-side)
+            const prevResp = await fetch('/api/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await prevResp.json();
+
+            // Remove loading indicator
+            const loadEl = platformDetect.querySelector('.preview-loading');
+            if (loadEl) loadEl.remove();
+
+            if (data.success && data.preview) {
+                showPreview(data.preview, platform);
+            } else if (data.error) {
+                platformDetect.innerHTML += `<span style="margin-left:12px;color:var(--warning);font-size:0.8rem">⚠ ${data.error}</span>`;
+            }
         } catch (e) {
-            platformDetect.innerHTML = '<span style="color:var(--error)">Could not detect platform</span>';
+            platformDetect.innerHTML = '<span style="color:var(--error)">Detection failed</span>';
         }
     }
 
-    // Single download
+    function showPreview(p, platform) {
+        currentPreviewUrl = urlInput.value.trim();
+        previewCard.style.display = 'flex';
+        previewCard.className = 'preview-card fade-in';
+
+        // Thumbnail
+        if (p.thumbnail) {
+            previewThumb.src = p.thumbnail;
+            previewThumb.style.display = 'block';
+        } else {
+            previewThumb.style.display = 'none';
+        }
+
+        // Title
+        previewTitle.textContent = p.title || 'Unknown';
+
+        // Meta line
+        const parts = [];
+        if (p.uploader) parts.push(p.uploader);
+        if (p.duration_str) parts.push(p.duration_str);
+        else if (p.duration) parts.push(formatDuration(p.duration));
+        if (p.view_count) parts.push(formatNumber(p.view_count) + ' views');
+        if (p.like_count) parts.push(formatNumber(p.like_count) + ' likes');
+        if (p.genre) parts.push(p.genre);
+        previewMeta.textContent = parts.join(' · ');
+
+        // Description
+        if (p.description) {
+            previewDesc.textContent = p.description.substring(0, 200);
+            previewDesc.style.display = 'block';
+        } else {
+            previewDesc.style.display = 'none';
+        }
+
+        // Auto-select audio for music platforms
+        if (platform === 'soundcloud' || platform === 'youtube_music') {
+            formatSelect.value = 'audio';
+        }
+    }
+
+    function hidePreview() {
+        previewCard.style.display = 'none';
+        currentPreviewUrl = '';
+    }
+
+    function formatDuration(sec) {
+        if (!sec) return '';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function formatNumber(n) {
+        if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+        return String(n);
+    }
+
+    // ---- Download ----
     btnDownload.addEventListener('click', startDownload);
     urlInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') startDownload();
@@ -103,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Batch download
+    // ---- Batch Download ----
     btnBatchDownload.addEventListener('click', startBatchDownload);
 
     async function startBatchDownload() {
@@ -138,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Poll job status
+    // ---- Poll job status ----
     async function pollJob(jobId, isBatch = false) {
         progressBar.classList.add('indeterminate');
         progressStatus.textContent = 'Downloading...';
@@ -153,11 +247,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressBar.classList.remove('indeterminate');
                     progressBar.style.width = '100%';
                     progressStatus.textContent = 'Download complete!';
-                    if (isBatch) {
-                        showBatchResults(job.results || []);
-                    } else {
-                        showResult(job.result);
-                    }
+                    if (isBatch) showBatchResults(job.results || []);
+                    else showResult(job.result);
                     resetButtons();
                     loadHistory();
                 } else if (job.status === 'failed') {
@@ -166,20 +257,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressBar.style.width = '100%';
                     progressBar.style.background = 'var(--error)';
                     progressStatus.textContent = 'Download failed';
-                    if (isBatch) {
-                        showBatchResults(job.results || []);
-                    } else {
-                        showError(job.result?.error || 'Download failed');
-                    }
+                    if (isBatch) showBatchResults(job.results || []);
+                    else showError(job.result?.error || 'Download failed');
                     resetButtons();
                     loadHistory();
                 }
-            } catch (e) {
-                // Keep polling
-            }
+            } catch (e) { /* keep polling */ }
         }, 1000);
 
-        // Timeout after 5 minutes
         setTimeout(() => { clearInterval(interval); resetButtons(); }, 300000);
     }
 
@@ -193,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="result-icon">❌</span>
                     <div class="result-info">
                         <div class="filename">Download Failed</div>
-                        <div class="meta">${result?.error || 'Unknown error'}</div>
+                        <div class="meta" style="color:var(--error)">${result?.error || 'Unknown error'}</div>
                     </div>
                 </div>`;
             return;
@@ -207,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="result-item fade-in">
                     <span class="result-icon">${icon}</span>
                     <div class="result-info">
-                        <div class="filename">${file.path?.split('/').pop()?.split('\\').pop() || 'File'}</div>
+                        <div class="filename">${file.path?.split('/').pop()?.split('\\\\').pop() || 'File'}</div>
                         <div class="meta">${file.size_human || ''} ${info.title ? '· ' + info.title.substring(0, 60) : ''}</div>
                     </div>
                     <span class="result-status">✅</span>
@@ -237,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="result-item fade-in">
                             <span class="result-icon">${icon}</span>
                             <div class="result-info">
-                                <div class="filename">${file.path?.split('/').pop()?.split('\\').pop() || 'File'}</div>
+                                <div class="filename">${file.path?.split('/').pop()?.split('\\\\').pop() || 'File'}</div>
                                 <div class="meta">${file.size_human || ''}</div>
                             </div>
                             <span class="result-status">✅</span>
@@ -297,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { el.style.borderColor = ''; }, 1000);
     }
 
-    // History
+    // ---- History ----
     btnRefresh.addEventListener('click', loadHistory);
     loadHistory();
 
@@ -329,9 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="history-status ${statusClass}">${job.status}</span>
                     </div>`;
             }
-        } catch (e) {
-            // silent
-        }
+        } catch (e) { /* silent */ }
     }
 });
 

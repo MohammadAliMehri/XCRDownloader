@@ -15,6 +15,16 @@ PLATFORM_PATTERNS = {
         r"vm\.tiktok\.com",
         r"vt\.tiktok\.com",
     ],
+    "youtube": [
+        r"youtube\.com",
+        r"youtu\.be",
+        r"music\.youtube\.com",
+        r"m\.youtube\.com",
+    ],
+    "soundcloud": [
+        r"soundcloud\.com",
+        r"snd\.sc",
+    ],
     "pinterest": [
         r"pinterest\.(com|ca|co\.uk|fr|de|it|es|ru|jp|kr|au|in|nz)",
         r"pin\.it",
@@ -89,8 +99,8 @@ def print_banner():
 ║   ██╔╝ ██╗╚██████╗██║  ██║██████╔╝╚██████╔╝╚███╔███╔╝   ║
 ║   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝   ║
 ║                                                          ║
-║   ⚡ Universal Social Media Downloader v1.0.0             ║
-║   📥 Instagram · TikTok · X/Twitter · Pinterest          ║
+║   ⚡ Universal Social Media Downloader v1.1.0             ║
+║   📥 Insta · TikTok · X · Pinterest · YT · SoundCloud    ║
 ║   🔓 Free · Unlimited · No API Keys Required             ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝\033[0m"""
