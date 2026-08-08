@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════
 #  XCRDownloader — Linux / macOS Setup Script
-#  Creates venv, installs all deps, builds .exe via PyInstaller
+#  Creates venv and installs all dependencies
 # ═══════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -66,19 +66,6 @@ echo -e "${CYAN}📦 Installing Python dependencies...${NC}"
 pip install -r requirements.txt -q
 echo -e "${GREEN}✅ All packages installed${NC}"
 
-# ─── Build .exe (optional) ───
-echo ""
-read -p "🔨 Build standalone executable? (y/N): " BUILD_EXE
-if [[ "$BUILD_EXE" =~ ^[Yy]$ ]]; then
-    echo -e "${CYAN}🔨 Building executable with PyInstaller...${NC}"
-    python build.py
-    if [ -f "dist/XCRDownloader" ] || [ -f "dist/XCRDownloader.exe" ]; then
-        echo -e "${GREEN}✅ Build complete! Executable in dist/${NC}"
-    else
-        echo -e "${RED}❌ Build failed. Check output above.${NC}"
-    fi
-fi
-
 echo -e "\n${GREEN}════════════════════════════════════════════════${NC}"
 echo -e "${GREEN} ✅ Setup complete!${NC}"
 echo -e "${GREEN}════════════════════════════════════════════════${NC}"
@@ -87,7 +74,4 @@ echo "  Usage:"
 echo "    source venv/bin/activate"
 echo "    python cli.py <URL>"
 echo "    python cli.py --web"
-echo ""
-echo "  Or build standalone:"
-echo "    python build.py"
 echo ""

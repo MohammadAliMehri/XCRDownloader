@@ -1,7 +1,7 @@
 @echo off
 REM ═══════════════════════════════════════════════════════
 REM  XCRDownloader — Windows Setup Script
-REM  Creates venv, installs all deps, builds .exe via PyInstaller
+REM  Creates venv and installs all dependencies
 REM ═══════════════════════════════════════════════════════
 chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
@@ -61,19 +61,6 @@ if errorlevel 1 (
 )
 echo ✅ All packages installed
 
-REM ─── Build .exe ───
-echo.
-set /p BUILD="🔨 Build standalone .exe? (Y/n): "
-if /i not "!BUILD!"=="n" (
-    echo 🔨 Building XCRDownloader.exe with PyInstaller...
-    python build.py
-    if exist "dist\XCRDownloader.exe" (
-        echo ✅ Build complete! dist\XCRDownloader.exe
-    ) else (
-        echo ❌ Build failed. Check output above.
-    )
-)
-
 echo.
 echo ════════════════════════════════════════════════
 echo  ✅ Setup complete!
@@ -83,9 +70,5 @@ echo   Usage:
 echo     venv\Scripts\activate
 echo     python cli.py ^<URL^>
 echo     python cli.py --web
-echo.
-echo   Or run the .exe directly:
-echo     dist\XCRDownloader.exe ^<URL^>
-echo     dist\XCRDownloader.exe --web
 echo.
 pause
