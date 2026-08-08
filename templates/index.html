@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCRDownloader — Universal Social Media Downloader</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="logo">
+                    <span class="logo-icon">⚡</span>
+                    <h1>XCRDownloader</h1>
+                    <span class="badge">v1.0</span>
+                </div>
+                <p class="subtitle">Free · Unlimited · No API Keys · Instagram · TikTok · X · Pinterest</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container">
+            <!-- Download Section -->
+            <section class="card download-card">
+                <div class="card-header">
+                    <h2>📥 Download</h2>
+                    <div class="tab-switcher">
+                        <button class="tab active" data-tab="single">Single URL</button>
+                        <button class="tab" data-tab="batch">Batch Download</button>
+                    </div>
+                </div>
+
+                <!-- Single URL Tab -->
+                <div class="tab-content active" id="tab-single">
+                    <div class="input-group">
+                        <div class="input-wrapper">
+                            <input type="text" id="url-input" placeholder="Paste any URL — Instagram Reel, TikTok, Tweet, Pinterest Pin..." autocomplete="off">
+                            <button class="btn btn-detect" id="btn-detect" title="Detect Platform">
+                                <span class="detect-icon">🔍</span>
+                            </button>
+                        </div>
+                        <div class="platform-detect" id="platform-detect"></div>
+                    </div>
+
+                    <div class="options-row">
+                        <div class="option-group">
+                            <label>Quality</label>
+                            <select id="quality">
+                                <option value="best">Best Available</option>
+                                <option value="hd">HD (1080p)</option>
+                                <option value="sd">SD (480p)</option>
+                            </select>
+                        </div>
+                        <div class="option-group">
+                            <label>Format</label>
+                            <select id="format">
+                                <option value="video">Video (MP4)</option>
+                                <option value="audio">Audio Only (MP3)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-download" id="btn-download">
+                            <span class="btn-icon">⬇️</span>
+                            Download
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Batch Tab -->
+                <div class="tab-content" id="tab-batch">
+                    <textarea id="batch-urls" rows="6" placeholder="Paste multiple URLs (one per line)&#10;https://www.instagram.com/reel/ABC123/&#10;https://www.tiktok.com/@user/video/123&#10;https://twitter.com/user/status/456"></textarea>
+                    <div class="options-row">
+                        <div class="option-group">
+                            <label>Quality</label>
+                            <select id="batch-quality">
+                                <option value="best">Best Available</option>
+                                <option value="hd">HD (1080p)</option>
+                                <option value="sd">SD (480p)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-download" id="btn-batch-download">
+                            <span class="btn-icon">⬇️</span>
+                            Download All
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Supported Platforms -->
+            <section class="platforms-grid">
+                <div class="platform-card" data-platform="instagram">
+                    <div class="platform-icon">📸</div>
+                    <h3>Instagram</h3>
+                    <p>Reels · Stories · Posts · IGTV</p>
+                </div>
+                <div class="platform-card" data-platform="tiktok">
+                    <div class="platform-icon">🎵</div>
+                    <h3>TikTok</h3>
+                    <p>Videos · No Watermark · Audio</p>
+                </div>
+                <div class="platform-card" data-platform="twitter">
+                    <div class="platform-icon">🐦</div>
+                    <h3>X / Twitter</h3>
+                    <p>Videos · Images · GIFs · Threads</p>
+                </div>
+                <div class="platform-card" data-platform="pinterest">
+                    <div class="platform-icon">📌</div>
+                    <h3>Pinterest</h3>
+                    <p>Videos · Images · GIFs · Pins</p>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="card progress-card" id="progress-section" style="display: none;">
+                <div class="card-header">
+                    <h2>⏳ Progress</h2>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <div id="progress-status" class="progress-status">Preparing download...</div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="card results-card" id="results-section" style="display: none;">
+                <div class="card-header">
+                    <h2>✅ Downloaded Files</h2>
+                </div>
+                <div id="results-list"></div>
+            </section>
+
+            <!-- History Section -->
+            <section class="card history-card">
+                <div class="card-header">
+                    <h2>📊 History</h2>
+                    <button class="btn btn-sm" id="btn-refresh-history">Refresh</button>
+                </div>
+                <div id="history-list" class="history-list">
+                    <p class="empty-state">No downloads yet. Paste a URL above to get started!</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <p>XCRDownloader v1.0.0 — Free & Open Source</p>
+                <p class="footer-links">
+                    <a href="https://github.com/MohammadAliMehri/XCRDownloader" target="_blank">GitHub</a>
+                    <span>·</span>
+                    <span>Supports 1800+ sites via yt-dlp</span>
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""XCRDownloader — Quick start script."""
+import os
+import sys
+
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from src.utils.helpers import print_banner
+
+
+def main():
+    print_banner()
+    print("""
+  Quick Start:
+  ═══════════════════════════════════════════════════
+
+  1. CLI Mode:
+     python cli.py <URL>
+     python cli.py https://www.instagram.com/reel/ABC123/
+     python cli.py --quality hd https://www.tiktok.com/@user/video/123
+     python cli.py --audio https://twitter.com/user/status/456
+
+  2. Web UI Mode:
+     python cli.py --web
+     python cli.py --web --port 9090
+
+  3. Batch Download:
+     python cli.py -u URL1 -u URL2 -u URL3
+     python cli.py -f urls.txt
+
+  4. Get Info (no download):
+     python cli.py --info <URL>
+
+  Supported Platforms:
+    📸 Instagram  — Reels, Stories, Posts, IGTV
+    🎵 TikTok     — Videos, No Watermark, Audio
+    🐦 X/Twitter  — Videos, Images, GIFs
+    📌 Pinterest  — Videos, Images, GIFs
+    🌐 1800+ sites via yt-dlp
+
+  ═══════════════════════════════════════════════════
+    """)
+
+
+if __name__ == "__main__":
+    main()
