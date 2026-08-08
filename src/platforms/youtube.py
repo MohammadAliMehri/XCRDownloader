@@ -1,4 +1,4 @@
-"""YouTube & YouTube Music downloader — Videos, Music, Playlists."""
+"""YouTube & YouTube Music downloader — Videos, Music, Playlists with embedded cover."""
 import os
 import sys
 import yt_dlp
@@ -59,7 +59,7 @@ class YouTubeDownloader(BaseDownloader):
         return self._ytdlp_download(url, opts)
 
     def _download_audio(self, url: str, category: str) -> dict:
-        """Download audio only as high-quality MP3."""
+        """Download audio only as high-quality MP3 with embedded cover art."""
         output_tpl = os.path.join(
             self.output_dir, category,
             "%(uploader|Unknown)s",
@@ -77,10 +77,16 @@ class YouTubeDownloader(BaseDownloader):
                 },
                 {
                     "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                },
+                {
+                    "key": "EmbedThumbnail",
+                    "already_have_thumbnail": False,
                 },
             ],
             "writethumbnail": True,
             "writeinfojson": False,
+            "keepvideo": False,
             "ignoreerrors": True,
             "retries": 3,
             "fragment_retries": 3,
@@ -93,14 +99,14 @@ class YouTubeDownloader(BaseDownloader):
 
         result = self._ytdlp_download(url, opts)
 
-        # Clean up thumbnail file if it exists (keep only mp3)
+        # Only keep audio files — thumbnail is now embedded
         if result.get("success"):
             cleaned = []
             for f in result.get("files", []):
-                if f.get("ext") in (".mp3", ".m4a", ".opus", ".wav", ".flac"):
+                ext = f.get("ext", "")
+                if ext in (".mp3", ".m4a", ".opus", ".wav", ".flac"):
                     cleaned.append(f)
-                elif f.get("ext") in (".jpg", ".png", ".webp"):
-                    # Remove thumbnail sidecar
+                else:
                     try:
                         os.remove(f["path"])
                     except OSError:
@@ -128,7 +134,6 @@ class YouTubeDownloader(BaseDownloader):
             return raw
 
         info = raw["info"]
-        # Normalize into a clean preview-friendly structure
         raw["preview"] = {
             "title": info.get("title", "Unknown"),
             "uploader": info.get("uploader") or info.get("channel", "Unknown"),

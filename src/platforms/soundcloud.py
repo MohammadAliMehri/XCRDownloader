@@ -1,4 +1,4 @@
-"""SoundCloud downloader — Tracks, Playlists, Albums."""
+"""SoundCloud downloader — Tracks, Playlists, Albums with embedded cover art."""
 import os
 import sys
 import yt_dlp
@@ -16,7 +16,7 @@ class SoundCloudDownloader(BaseDownloader):
 
     def download(self, url: str, quality: str = "best", audio_only: bool = True,
                  **kwargs) -> dict:
-        """Download SoundCloud track or playlist as MP3."""
+        """Download SoundCloud track or playlist as MP3 with embedded cover art."""
         output_tpl = os.path.join(
             self.output_dir, "soundcloud",
             "%(uploader|Unknown)s",
@@ -34,23 +34,31 @@ class SoundCloudDownloader(BaseDownloader):
                 },
                 {
                     "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                },
+                {
+                    "key": "EmbedThumbnail",
+                    "already_have_thumbnail": False,
                 },
             ],
             "writethumbnail": True,
             "writeinfojson": False,
+            "keepvideo": False,
             "ignoreerrors": True,
             "retries": 3,
         }
 
         result = self._ytdlp_download(url, opts)
 
-        # Clean up thumbnail sidecar files
+        # Only keep audio files — thumbnail is now embedded in the MP3
         if result.get("success"):
             cleaned = []
             for f in result.get("files", []):
-                if f.get("ext") in (".mp3", ".m4a", ".opus", ".wav", ".flac"):
+                ext = f.get("ext", "")
+                if ext in (".mp3", ".m4a", ".opus", ".wav", ".flac"):
                     cleaned.append(f)
-                elif f.get("ext") in (".jpg", ".png", ".webp"):
+                else:
+                    # Leftover thumbnail sidecar — delete it
                     try:
                         os.remove(f["path"])
                     except OSError:

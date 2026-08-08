@@ -1,9 +1,42 @@
-"""Base downloader class with yt-dlp integration."""
+"""Base downloader class with yt-dlp integration and ffmpeg auto-detection."""
 import os
 import sys
+import shutil
 import yt_dlp
 from datetime import datetime
 from src.utils.helpers import sanitize_filename, format_filesize
+
+
+def _find_ffmpeg() -> str | None:
+    """Auto-detect ffmpeg location. Returns directory containing ffmpeg.exe."""
+    # 1. Already on PATH?
+    found = shutil.which("ffmpeg")
+    if found:
+        return os.path.dirname(os.path.abspath(found))
+
+    # 2. Common install locations
+    candidates = [
+        r"C:\ffmpeg\ffmpeg-9.0-essentials_build\bin",
+        r"C:\ffmpeg\ffmpeg-8.0-essentials_build\bin",
+        r"C:\ffmpeg\ffmpeg-7.0-essentials_build\bin",
+        r"C:\ffmpeg\bin",
+        r"C:\Program Files\ffmpeg\bin",
+        r"C:\Program Files (x86)\ffmpeg\bin",
+        os.path.expanduser("~/ffmpeg/bin"),
+        "/usr/bin",
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+    ]
+    for d in candidates:
+        exe = os.path.join(d, "ffmpeg.exe") if sys.platform == "win32" else os.path.join(d, "ffmpeg")
+        if os.path.isfile(exe):
+            return d
+
+    return None
+
+
+# Resolve once at import time
+FFMPEG_DIR = _find_ffmpeg()
 
 
 class BaseDownloader:
@@ -26,6 +59,9 @@ class BaseDownloader:
 
     def _make_opts(self, extra: dict = None) -> dict:
         opts = dict(self.DEFAULT_OPTS)
+        # Inject ffmpeg location if found
+        if FFMPEG_DIR:
+            opts["ffmpeg_location"] = FFMPEG_DIR
         if extra:
             opts.update(extra)
         return opts
@@ -51,6 +87,7 @@ class BaseDownloader:
                     "like_count": info.get("like_count"),
                     "upload_date": info.get("upload_date"),
                     "platform": info.get("extractor_key", "Unknown"),
+                    "thumbnail": info.get("thumbnail"),
                 }
 
                 # Collect downloaded files
