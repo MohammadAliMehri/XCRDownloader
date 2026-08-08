@@ -223,5 +223,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  Made with ⚡ by <a href="https://github.com/MohammadAliMehri">MohammadAliMehri</a>
+  Made with Love💙 by <a href="https://github.com/MohammadAliMehri">MohammadAliMehri</a>
 </p>
