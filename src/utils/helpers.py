@@ -21,8 +21,8 @@ PLATFORM_PATTERNS = {
     ],
     "twitter": [
         r"twitter\.com",
-        r"(?:^|(?<=/))x\.com",
-        r"t\.co",
+        r"://(?:www\.)?x\.com",
+        r"://(?:www\.)?t\.co",
     ],
 }
 
