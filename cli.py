@@ -56,7 +56,7 @@ Examples:
     parser.add_argument("--port", type=int, default=8080, help="Web UI port (default: 8080)")
     parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.1.0")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.2.0")
 
     args = parser.parse_args()
 

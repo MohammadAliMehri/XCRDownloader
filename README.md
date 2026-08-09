@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.1.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.2.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -26,6 +26,7 @@
 
 - 🚀 **No API keys required** — works out of the box, completely free
 - ▶️ **YouTube** — Videos, Music, Playlists, Shorts (with preview)
+- 🛡️ **YouTube anti-bot resilience** — modern player clients (`android_vr`, `web_safari`) + automatic client rotation + optional TLS impersonation, so downloads keep working when YouTube blocks a client
 - 🎶 **YouTube Music** — Auto-converts to high-quality MP3
 - 🔊 **SoundCloud** — Tracks, Playlists, Albums (auto MP3)
 - 📸 **Instagram** — Reels, Stories, Posts, IGTV
@@ -108,6 +109,20 @@ brew install ffmpeg
 
 # Ubuntu/Debian
 sudo apt install ffmpeg
+```
+
+## 🔧 YouTube Reliability (v1.2.0)
+
+YouTube periodically blocks yt-dlp's default download clients, causing `HTTP Error 403` or `No video formats found!`. XCRDownloader v1.2.0 handles this with a **layered strategy**:
+
+1. **Modern player clients** — uses YouTube's current recommended clients (`android_vr`, `web_safari`) instead of the deprecated `web`/`mweb` set.
+2. **Automatic client rotation** — if the primary clients fail, it retries with `tv_downgraded`, then `ios`/`android`, then legacy clients, until one succeeds.
+3. **TLS impersonation (optional)** — when `curl_cffi` is installed (it is by default), requests impersonate a real Chrome browser at the TLS level, defeating bot-detection 403s.
+
+No configuration needed — it just works. To update an existing install:
+
+```bash
+pip install -r requirements.txt   # pulls yt-dlp >= 2026.7.4 + curl_cffi
 ```
 
 ## 🌐 Web UI

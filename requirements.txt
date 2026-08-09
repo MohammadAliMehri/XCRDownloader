@@ -1,4 +1,5 @@
-yt-dlp>=2025.1.1
+yt-dlp>=2026.7.4
+curl_cffi>=0.10,<0.16  # TLS impersonation for yt-dlp (anti-403, supported range)
 gallery-dl>=1.28.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0

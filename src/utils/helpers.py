@@ -99,7 +99,7 @@ def print_banner():
 ║   ██╔╝ ██╗╚██████╗██║  ██║██████╔╝╚██████╔╝╚███╔███╔╝   ║
 ║   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝   ║
 ║                                                          ║
-║   ⚡ Universal Social Media Downloader v1.1.0             ║
+║   ⚡ Universal Social Media Downloader v1.2.0             ║
 ║   📥 Insta · TikTok · X · Pinterest · YT · SoundCloud    ║
 ║   🔓 Free · Unlimited · No API Keys Required             ║
 ║                                                          ║
