@@ -15,7 +15,7 @@
                 <div class="logo">
                     <span class="logo-icon">⚡</span>
                     <h1>XCRDownloader</h1>
-                    <span class="badge">v1.1</span>
+                    <span class="badge">v1.3</span>
                 </div>
                 <p class="subtitle">Free · Unlimited · No API Keys · Instagram · TikTok · X · Pinterest · YouTube · SoundCloud</p>
             </div>
@@ -132,6 +132,53 @@
                 </div>
             </section>
 
+            <!-- Music Search Section -->
+            <section class="card search-card">
+                <div class="card-header">
+                    <h2>🎵 Search Music</h2>
+                    <span class="search-badge">Deezer · YouTube · SoundCloud</span>
+                </div>
+                <div class="search-bar">
+                    <div class="input-wrapper">
+                        <input type="text" id="music-search-input" placeholder="Search songs, artists, albums..." autocomplete="off">
+                        <button class="btn btn-search" id="btn-music-search">
+                            <span>🔍</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="search-status" class="search-status"></div>
+                <div id="search-results" class="search-results"></div>
+                <div id="search-load-more" style="display:none; text-align:center; padding:16px;">
+                    <button class="btn btn-sm" id="btn-load-more">Load More</button>
+                </div>
+            </section>
+
+            <!-- Now Playing Bar -->
+            <div id="now-playing" class="now-playing" style="display:none;">
+                <div class="np-inner">
+                    <img id="np-cover" class="np-cover" src="" alt="">
+                    <div class="np-info">
+                        <div class="np-title" id="np-title">—</div>
+                        <div class="np-artist" id="np-artist">—</div>
+                    </div>
+                    <div class="np-controls">
+                        <button class="np-btn" id="np-playpause" title="Play/Pause">▶️</button>
+                    </div>
+                    <div class="np-progress-wrap">
+                        <div class="np-progress-bar" id="np-progress-bar">
+                            <div class="np-progress-fill" id="np-progress-fill"></div>
+                        </div>
+                        <div class="np-time">
+                            <span id="np-current">0:00</span>
+                            <span id="np-duration">0:00</span>
+                        </div>
+                    </div>
+                    <button class="np-btn np-btn-download" id="np-download" title="Download">⬇️</button>
+                    <button class="np-btn np-btn-close" id="np-close" title="Close">✕</button>
+                </div>
+                <audio id="np-audio" preload="none"></audio>
+            </div>
+
             <!-- Progress Section -->
             <section class="card progress-card" id="progress-section" style="display: none;">
                 <div class="card-header">
@@ -166,7 +213,7 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="container">
-                <p>XCRDownloader v1.1.0 — Free & Open Source</p>
+                <p>XCRDownloader v1.3.0 — Free & Open Source</p>
                 <p class="footer-links">
                     <a href="https://github.com/MohammadAliMehri/XCRDownloader" target="_blank">GitHub</a>
                     <span>·</span>

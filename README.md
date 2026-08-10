@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.2.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.3.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -9,7 +9,8 @@
 
 <p align="center">
   <strong>Free · Unlimited · No API Keys · No Rate Limits</strong><br>
-  Download videos, music, and images from YouTube, SoundCloud, Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.
+  Download videos, music, and images from YouTube, SoundCloud, Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.<br>
+  <strong>🎵 NEW: Search & Play Music</strong> — search across Deezer, YouTube & SoundCloud, play inline, download as MP3.
 </p>
 
 <p align="center">
@@ -41,6 +42,8 @@
 - 🐳 **Docker** — ready to deploy
 - ⚡ **Parallel downloads** — configurable worker threads
 - 🎧 **Audio extraction** — extract MP3 from any video
+- 🎵 **Music Search** — search across Deezer, YouTube & SoundCloud in one query, no API keys
+- ▶️ **Inline Player** — play tracks in the browser with a Spotify-like Now Playing bar
 - 📊 **Quality selection** — Best, HD (1080p), SD (480p)
 - 🛡️ **Error handling** — human-readable error messages
 
@@ -125,6 +128,33 @@ No configuration needed — it just works. To update an existing install:
 pip install -r requirements.txt   # pulls yt-dlp >= 2026.7.4 + curl_cffi
 ```
 
+## 🎵 Music Search & Player (v1.3.0)
+
+Search for music across **3 free providers** in parallel — no API keys needed:
+
+| Provider | What it searches | Preview |
+|----------|-----------------|---------|
+| 🎶 Deezer | Tracks, albums, artists | 30s MP3 preview (instant) |
+| ▶️ YouTube | Videos/tracks | Full playback via yt-dlp stream |
+| 🔊 SoundCloud | Tracks | Full playback via yt-dlp stream |
+
+**Web UI:** Type a query in the "Search Music" section → click any result's ▶ button to play → use the Now Playing bar (seek, play/pause, download). Click ⬇️ to download as MP3.
+
+**CLI:**
+```bash
+python cli.py --search "Eminem Lose Yourself"
+python cli.py --search "Adele Hello" --json
+```
+
+**API:**
+```
+GET  /api/search?q=...&page=0    → merged search results
+POST /api/stream                  → get playable audio URL
+POST /api/download-track          → download as MP3
+```
+
+Inspired by [unstream](https://github.com/amiralibg/unstream).
+
 ## 🌐 Web UI
 
 ```bash
@@ -136,6 +166,8 @@ python cli.py --web --port 9090
 Opens `http://127.0.0.1:8080` in your browser. Features:
 
 - 🔍 **Auto-preview** — paste a URL → see title, thumbnail, duration, views before downloading
+- 🎵 **Music Search** — search songs, artists, albums across Deezer, YouTube & SoundCloud
+- ▶️ **Inline Player** — click play on any search result → Now Playing bar with seek, play/pause, download
 - 🎨 Modern dark theme
 - 📋 Single & batch download
 - 📊 Download history & stats
@@ -167,6 +199,10 @@ python cli.py -f urls.txt
 
 # JSON output
 python cli.py --json --info URL
+
+# Search music (Deezer + YouTube + SoundCloud)
+python cli.py --search "Eminem Lose Yourself"
+python cli.py --search "Adele Hello"
 ```
 
 ## 🐳 Docker
@@ -203,7 +239,8 @@ XCRDownloader/
 ├── docker-compose.yml     # Docker Compose
 ├── src/
 │   ├── engine.py          # Download engine + error humanizer
-│   ├── web.py             # Flask Web UI backend (+ /api/preview)
+│   ├── search.py          # Music search (Deezer + YouTube + SoundCloud)
+│   ├── web.py             # Flask Web UI backend (+ search/stream/download-track APIs)
 │   ├── platforms/
 │   │   ├── base.py        # Base downloader (yt-dlp)
 │   │   ├── instagram.py   # Instagram handler

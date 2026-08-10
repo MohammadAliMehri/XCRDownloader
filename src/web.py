@@ -6,11 +6,12 @@ import threading
 import uuid
 import time
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from flask_cors import CORS
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.engine import DownloaderEngine
+from src.search import search_music, get_stream_url, resolve_for_download
 from src.utils.helpers import detect_platform
 
 
@@ -193,6 +194,81 @@ def create_app(output_dir="downloads"):
             "failed": failed,
             "platforms": platforms,
         })
+
+    # ---- Music Search API ----
+
+    @app.route("/api/search")
+    def api_search():
+        """Search music across Deezer, YouTube, SoundCloud."""
+        q = request.args.get("q", "").strip()
+        page = int(request.args.get("page", 0))
+        if not q:
+            return jsonify({"error": "Empty search query"}), 400
+        try:
+            result = search_music(q, page)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)[:200]}), 500
+
+    @app.route("/api/stream", methods=["POST"])
+    def api_stream():
+        """Get a playable stream URL for a track."""
+        data = request.get_json(force=True)
+        source_url = (data.get("source_url") or "").strip()
+        preview_url = (data.get("preview_url") or "").strip()
+        if not source_url and not preview_url:
+            return jsonify({"error": "No URL provided"}), 400
+
+        # If we already have a preview_url (Deezer), return it directly
+        if preview_url:
+            return jsonify({
+                "success": True,
+                "stream_url": preview_url,
+                "source": "deezer",
+            })
+
+        result = get_stream_url(source_url)
+        return jsonify(result)
+
+    @app.route("/api/download-track", methods=["POST"])
+    def api_download_track():
+        """Download a track from search results by source_url."""
+        data = request.get_json(force=True)
+        source_url = data.get("source_url", "").strip()
+        title = data.get("title", "Unknown")
+        artist = data.get("artist", "")
+
+        if not source_url:
+            return jsonify({"error": "No source URL provided"}), 400
+
+        download_url = resolve_for_download(source_url)
+        job_id = str(uuid.uuid4())[:8]
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "pending",
+            "url": download_url,
+            "platform": detect_platform(download_url),
+            "quality": "best",
+            "result": None,
+            "created_at": datetime.now().isoformat(),
+            "track_title": title,
+            "track_artist": artist,
+        }
+
+        def _run():
+            jobs[job_id]["status"] = "downloading"
+            try:
+                result = engine.download(download_url, quality="best", audio_only=True)
+                jobs[job_id]["result"] = result
+                jobs[job_id]["status"] = "completed" if result.get("success") else "failed"
+            except Exception as e:
+                jobs[job_id]["result"] = {"success": False, "error": str(e)}
+                jobs[job_id]["status"] = "failed"
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+        return jsonify({"job_id": job_id, "status": "pending"})
 
     return app
 

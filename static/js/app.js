@@ -422,3 +422,273 @@ document.addEventListener('DOMContentLoaded', () => {
 const style = document.createElement('style');
 style.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }`;
 document.head.appendChild(style);
+
+// =========================================================================
+// Music Search + Player
+// =========================================================================
+(function() {
+    const searchInput = document.getElementById('music-search-input');
+    const btnSearch = document.getElementById('btn-music-search');
+    const searchResults = document.getElementById('search-results');
+    const searchStatus = document.getElementById('search-status');
+    const searchLoadMore = document.getElementById('search-load-more');
+    const btnLoadMore = document.getElementById('btn-load-more');
+
+    // Now Playing elements
+    const npBar = document.getElementById('now-playing');
+    const npAudio = document.getElementById('np-audio');
+    const npCover = document.getElementById('np-cover');
+    const npTitle = document.getElementById('np-title');
+    const npArtist = document.getElementById('np-artist');
+    const npPlayPause = document.getElementById('np-playpause');
+    const npProgressFill = document.getElementById('np-progress-fill');
+    const npCurrent = document.getElementById('np-current');
+    const npDuration = document.getElementById('np-duration');
+    const npDownload = document.getElementById('np-download');
+    const npClose = document.getElementById('np-close');
+
+    const SOURCE_ICONS = { deezer: '🎶', youtube: '▶️', soundcloud: '🔊' };
+    const SOURCE_COLORS = { deezer: '#a23de8', youtube: '#ff0000', soundcloud: '#ff5500' };
+
+    let currentQuery = '';
+    let currentPage = 0;
+    let currentTrack = null;
+    let isPlaying = false;
+
+    // --- Search ---
+    function doSearch(query, page) {
+        if (!query.trim()) return;
+        currentQuery = query;
+        currentPage = page;
+
+        if (page === 0) {
+            searchResults.innerHTML = '';
+            searchStatus.innerHTML = '<span class="search-loading">⏳ Searching across Deezer, YouTube & SoundCloud...</span>';
+        }
+
+        fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`)
+            .then(r => r.json())
+            .then(data => {
+                searchStatus.innerHTML = '';
+                if (data.error) {
+                    searchStatus.innerHTML = `<span class="search-error">❌ ${data.error}</span>`;
+                    return;
+                }
+                const results = data.results || [];
+                if (results.length === 0 && page === 0) {
+                    searchStatus.innerHTML = '<span class="search-empty">No results found. Try a different query.</span>';
+                    return;
+                }
+                for (const r of results) {
+                    searchResults.appendChild(createResultCard(r));
+                }
+                searchLoadMore.style.display = data.has_more ? 'block' : 'none';
+            })
+            .catch(e => {
+                searchStatus.innerHTML = `<span class="search-error">❌ Search failed: ${e.message}</span>`;
+            });
+    }
+
+    function createResultCard(r) {
+        const card = document.createElement('div');
+        card.className = 'sr-card fade-in';
+        const source = r.source || 'unknown';
+        const icon = SOURCE_ICONS[source] || '🎵';
+        const color = SOURCE_COLORS[source] || 'var(--accent)';
+        const durationStr = r.duration ? formatDuration(r.duration) : '';
+        const kindLabel = r.kind === 'album' ? '💿 Album' : r.kind === 'artist' ? '👤 Artist' : '🎵 Track';
+        const coverHtml = r.cover
+            ? `<img class="sr-cover" src="${r.cover}" alt="" loading="lazy">`
+            : `<div class="sr-cover sr-cover-placeholder">${icon}</div>`;
+
+        card.innerHTML = `
+            <div class="sr-play-btn" data-source-url="${escapeHtml(r.source_url || '')}" data-preview-url="${escapeHtml(r.preview_url || '')}" data-title="${escapeHtml(r.title)}" data-artist="${escapeHtml(r.artist)}" data-cover="${escapeHtml(r.cover || '')}">
+                ▶
+            </div>
+            ${coverHtml}
+            <div class="sr-info">
+                <div class="sr-title">${escapeHtml(r.title)}</div>
+                <div class="sr-meta">
+                    <span class="sr-source" style="color:${color}">${icon} ${source}</span>
+                    <span class="sr-kind">${kindLabel}</span>
+                    ${r.artist ? `<span class="sr-artist">${escapeHtml(r.artist)}</span>` : ''}
+                    ${durationStr ? `<span class="sr-duration">${durationStr}</span>` : ''}
+                    ${r.album ? `<span class="sr-album">${escapeHtml(r.album)}</span>` : ''}
+                    ${r.track_count ? `<span class="sr-count">${r.track_count} tracks</span>` : ''}
+                </div>
+            </div>
+            <button class="sr-download-btn" data-source-url="${escapeHtml(r.source_url || '')}" data-title="${escapeHtml(r.title)}" data-artist="${escapeHtml(r.artist)}" title="Download">
+                ⬇️
+            </button>
+        `;
+
+        // Play button click
+        const playBtn = card.querySelector('.sr-play-btn');
+        playBtn.addEventListener('click', () => {
+            const trackData = {
+                source_url: playBtn.dataset.sourceUrl,
+                preview_url: playBtn.dataset.previewUrl,
+                title: playBtn.dataset.title,
+                artist: playBtn.dataset.artist,
+                cover: playBtn.dataset.cover,
+            };
+            playTrack(trackData);
+        });
+
+        // Download button click
+        const dlBtn = card.querySelector('.sr-download-btn');
+        dlBtn.addEventListener('click', () => {
+            downloadTrack(dlBtn.dataset.sourceUrl, dlBtn.dataset.title, dlBtn.dataset.artist);
+        });
+
+        return card;
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function formatDuration(sec) {
+        if (!sec) return '';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ':' + String(s).padStart(2, '0');
+    }
+
+    // --- Play Track ---
+    function playTrack(track) {
+        currentTrack = track;
+
+        // Update now-playing bar
+        npTitle.textContent = track.title || 'Unknown';
+        npArtist.textContent = track.artist || '';
+        if (track.cover) {
+            npCover.src = track.cover;
+            npCover.style.display = 'block';
+        } else {
+            npCover.style.display = 'none';
+        }
+        npBar.style.display = 'block';
+        npPlayPause.textContent = '⏳';
+        npProgressFill.style.width = '0%';
+        npCurrent.textContent = '0:00';
+        npDuration.textContent = '0:00';
+
+        // Get stream URL
+        fetch('/api/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_url: track.source_url,
+                preview_url: track.preview_url || '',
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.stream_url) {
+                npAudio.src = data.stream_url;
+                npAudio.play().then(() => {
+                    isPlaying = true;
+                    npPlayPause.textContent = '⏸️';
+                }).catch(e => {
+                    npPlayPause.textContent = '▶️';
+                    console.warn('Playback failed:', e);
+                });
+            } else {
+                npPlayPause.textContent = '❌';
+                npTitle.textContent = track.title + ' — ' + (data.error || 'Stream unavailable');
+            }
+        })
+        .catch(e => {
+            npPlayPause.textContent = '❌';
+        });
+    }
+
+    // Audio events
+    npAudio.addEventListener('timeupdate', () => {
+        if (npAudio.duration && isFinite(npAudio.duration)) {
+            const pct = (npAudio.currentTime / npAudio.duration) * 100;
+            npProgressFill.style.width = pct + '%';
+            npCurrent.textContent = formatDuration(Math.floor(npAudio.currentTime));
+            npDuration.textContent = formatDuration(Math.floor(npAudio.duration));
+        }
+    });
+
+    npAudio.addEventListener('ended', () => {
+        isPlaying = false;
+        npPlayPause.textContent = '▶️';
+        npProgressFill.style.width = '0%';
+    });
+
+    npAudio.addEventListener('pause', () => {
+        isPlaying = false;
+        npPlayPause.textContent = '▶️';
+    });
+
+    npAudio.addEventListener('play', () => {
+        isPlaying = true;
+        npPlayPause.textContent = '⏸️';
+    });
+
+    // Play/Pause toggle
+    npPlayPause.addEventListener('click', () => {
+        if (!npAudio.src) return;
+        if (isPlaying) {
+            npAudio.pause();
+        } else {
+            npAudio.play();
+        }
+    });
+
+    // Seek on progress bar click
+    document.getElementById('np-progress-bar').addEventListener('click', (e) => {
+        if (!npAudio.duration || !isFinite(npAudio.duration)) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        npAudio.currentTime = pct * npAudio.duration;
+    });
+
+    // Close player
+    npClose.addEventListener('click', () => {
+        npAudio.pause();
+        npAudio.src = '';
+        npBar.style.display = 'none';
+        isPlaying = false;
+        currentTrack = null;
+    });
+
+    // Download from now-playing bar
+    npDownload.addEventListener('click', () => {
+        if (currentTrack) {
+            downloadTrack(currentTrack.source_url, currentTrack.title, currentTrack.artist);
+        }
+    });
+
+    // --- Download Track ---
+    function downloadTrack(sourceUrl, title, artist) {
+        if (!sourceUrl) return;
+        fetch('/api/download-track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_url: sourceUrl,
+                title: title || 'Unknown',
+                artist: artist || '',
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.job_id) {
+                pollJob(data.job_id);
+            }
+        })
+        .catch(e => console.error('Download failed:', e));
+    }
+
+    // --- Event Listeners ---
+    btnSearch.addEventListener('click', () => doSearch(searchInput.value, 0));
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doSearch(searchInput.value, 0);
+    });
+    btnLoadMore.addEventListener('click', () => doSearch(currentQuery, currentPage + 1));
+})();

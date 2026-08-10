@@ -16,6 +16,7 @@ if _here not in sys.path:
     sys.path.insert(0, _here)
 
 from src.engine import DownloaderEngine
+from src.search import search_music
 from src.utils.helpers import print_banner, format_filesize, detect_platform
 
 
@@ -56,7 +57,8 @@ Examples:
     parser.add_argument("--port", type=int, default=8080, help="Web UI port (default: 8080)")
     parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.2.0")
+    parser.add_argument("--search", action="store_true", help="Search for music (Deezer + YouTube + SoundCloud)")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.3.0")
 
     args = parser.parse_args()
 
@@ -153,6 +155,44 @@ Examples:
                         print(f"     Desc:     {desc}")
                 else:
                     print(f"  ❌ Error: {result.get('error', 'Unknown')}")
+        return
+
+    # Search mode
+    if args.search:
+        query = " ".join(all_urls) if all_urls else ""
+        if not query:
+            print("\n  ❌ Provide a search query: python cli.py --search 'query'\n")
+            return
+        print(f"\n  🔍 Searching: \"{query}\"")
+        print(f"  📡 Sources: Deezer · YouTube · SoundCloud\n")
+        try:
+            result = search_music(query)
+        except Exception as e:
+            print(f"  ❌ Search error: {e}\n")
+            return
+        results = result.get("results", [])
+        if not results:
+            print("  No results found.\n")
+            return
+        for i, r in enumerate(results[:30], 1):
+            src = r.get("source", "?").upper()
+            kind = r.get("kind", "track")
+            icon = {"track": "🎵", "album": "💿", "artist": "👤"}.get(kind, "🎵")
+            title = r.get("title", "?")
+            artist = r.get("artist", "")
+            dur = ""
+            if r.get("duration"):
+                m, s = divmod(int(r["duration"]), 60)
+                dur = f" [{m}:{s:02d}]"
+            preview = " 🎧" if r.get("preview_url") else ""
+            print(f"  {i:2d}. {icon} {title}")
+            if artist:
+                print(f"      {artist}{dur}  [{src}]{preview}")
+            if args.json:
+                import json as _json
+                print(_json.dumps(r, indent=2, default=str))
+        print(f"\n  📊 {len(results)} results found")
+        print(f"  💡 Use the Web UI (--web) to play and download search results\n")
         return
 
     # Download mode
