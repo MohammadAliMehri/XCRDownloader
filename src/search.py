@@ -1,7 +1,7 @@
 """Music search engine — Deezer (free, no key) + YouTube (yt-dlp).
 
-Inspired by the unstream project's approach: fan out to multiple free
-providers in parallel, merge results by relevance. No API keys needed.
+Fan out to multiple free providers in parallel, merge results by
+relevance. No API keys needed.
 
 Deezer's public API at api.deezer.com requires no authentication and
 provides clean metadata (title, artist, album art, 30s preview).

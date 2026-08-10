@@ -153,8 +153,6 @@ POST /api/stream                  → get playable audio URL
 POST /api/download-track          → download as MP3
 ```
 
-Inspired by [unstream](https://github.com/amiralibg/unstream).
-
 ## 🌐 Web UI
 
 ```bash
