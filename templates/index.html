@@ -146,6 +146,13 @@
                         </button>
                     </div>
                 </div>
+                <!-- Category Filter Tabs -->
+                <div class="category-tabs" id="category-tabs" style="display:none;">
+                    <button class="cat-tab active" data-cat="all">All</button>
+                    <button class="cat-tab" data-cat="track">🎵 Tracks</button>
+                    <button class="cat-tab" data-cat="album">💿 Albums</button>
+                    <button class="cat-tab" data-cat="artist">👤 Artists</button>
+                </div>
                 <div id="search-status" class="search-status"></div>
                 <div id="search-results" class="search-results"></div>
                 <div id="search-load-more" style="display:none; text-align:center; padding:16px;">
@@ -155,28 +162,45 @@
 
             <!-- Now Playing Bar -->
             <div id="now-playing" class="now-playing" style="display:none;">
-                <div class="np-inner">
-                    <img id="np-cover" class="np-cover" src="" alt="">
-                    <div class="np-info">
-                        <div class="np-title" id="np-title">—</div>
-                        <div class="np-artist" id="np-artist">—</div>
-                    </div>
-                    <div class="np-controls">
-                        <button class="np-btn" id="np-playpause" title="Play/Pause">▶️</button>
-                    </div>
-                    <div class="np-progress-wrap">
-                        <div class="np-progress-bar" id="np-progress-bar">
-                            <div class="np-progress-fill" id="np-progress-fill"></div>
-                        </div>
-                        <div class="np-time">
-                            <span id="np-current">0:00</span>
-                            <span id="np-duration">0:00</span>
-                        </div>
-                    </div>
-                    <button class="np-btn np-btn-download" id="np-download" title="Download">⬇️</button>
-                    <button class="np-btn np-btn-close" id="np-close" title="Close">✕</button>
-                </div>
                 <audio id="np-audio" preload="none"></audio>
+                <div class="np-inner">
+                    <!-- Left: cover + info -->
+                    <div class="np-left">
+                        <img id="np-cover" class="np-cover" src="" alt="">
+                        <div class="np-info">
+                            <div class="np-title" id="np-title">—</div>
+                            <div class="np-artist" id="np-artist">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Center: controls + progress -->
+                    <div class="np-center">
+                        <div class="np-controls">
+                            <button class="np-btn" id="np-shuffle" title="Shuffle" aria-label="Shuffle">🔀</button>
+                            <button class="np-btn" id="np-prev" title="Previous" aria-label="Previous">⏮</button>
+                            <button class="np-btn np-btn-play" id="np-playpause" title="Play/Pause" aria-label="Play/Pause">▶</button>
+                            <button class="np-btn" id="np-next" title="Next" aria-label="Next">⏭</button>
+                            <button class="np-btn" id="np-repeat" title="Repeat" aria-label="Repeat">🔁</button>
+                        </div>
+                        <div class="np-progress-wrap">
+                            <span class="np-time-label" id="np-current">0:00</span>
+                            <div class="np-progress-bar" id="np-progress-bar">
+                                <div class="np-progress-fill" id="np-progress-fill"></div>
+                            </div>
+                            <span class="np-time-label" id="np-duration">0:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Right: volume + actions -->
+                    <div class="np-right">
+                        <div class="np-volume-wrap">
+                            <button class="np-btn np-btn-vol" id="np-vol-icon" title="Volume">🔊</button>
+                            <input type="range" id="np-volume" class="np-volume-slider" min="0" max="1" step="0.01" value="1">
+                        </div>
+                        <button class="np-btn" id="np-download" title="Download">⬇️</button>
+                        <button class="np-btn np-btn-close" id="np-close" title="Close">✕</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Progress Section -->
