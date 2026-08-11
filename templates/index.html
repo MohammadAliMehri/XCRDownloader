@@ -3,49 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XCRDownloader — Universal Social Media Downloader</title>
+    <title>XCRDownloader</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>\">
 </head>
 <body>
-    <div class="app">
-        <!-- Header -->
-        <header class="header">
-            <div class="container">
-                <div class="logo">
-                    <span class="logo-icon">⚡</span>
-                    <h1>XCRDownloader</h1>
-                    <span class="badge">v1.3</span>
-                </div>
-                <p class="subtitle">Free · Unlimited · No API Keys · Instagram · TikTok · X · Pinterest · YouTube · SoundCloud</p>
+    <!-- ===================== TOP NAV ===================== -->
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <div class="nav-brand">
+                <span class="nav-logo">⚡</span>
+                <span class="nav-title">XCR</span>
             </div>
-        </header>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-page="downloader">⬇️ Downloader</button>
+                <button class="nav-tab" data-page="player">🎵 Player</button>
+            </div>
+            <span class="nav-version">v1.4</span>
+        </div>
+    </nav>
 
-        <!-- Main Content -->
-        <main class="container">
-            <!-- Download Section -->
-            <section class="card download-card">
+    <!-- ===================== DOWNLOADER PAGE ===================== -->
+    <div class="page active" id="page-downloader">
+        <div class="page-inner">
+            <!-- Download Card -->
+            <section class="card">
                 <div class="card-header">
-                    <h2>📥 Download</h2>
+                    <h2>Download</h2>
                     <div class="tab-switcher">
                         <button class="tab active" data-tab="single">Single URL</button>
-                        <button class="tab" data-tab="batch">Batch Download</button>
+                        <button class="tab" data-tab="batch">Batch</button>
                     </div>
                 </div>
 
-                <!-- Single URL Tab -->
                 <div class="tab-content active" id="tab-single">
-                    <div class="input-group">
-                        <div class="input-wrapper">
-                            <input type="text" id="url-input" placeholder="Paste any URL — YouTube, Instagram, TikTok, SoundCloud, X, Pinterest..." autocomplete="off">
-                            <button class="btn btn-detect" id="btn-detect" title="Detect & Preview">
-                                <span class="detect-icon">🔍</span>
-                            </button>
-                        </div>
-                        <div class="platform-detect" id="platform-detect"></div>
+                    <div class="input-row">
+                        <input type="text" id="url-input" class="input-main" placeholder="Paste URL — YouTube, Instagram, TikTok, SoundCloud, X, Pinterest..." autocomplete="off">
+                        <button class="btn btn-primary" id="btn-download">Download</button>
                     </div>
+                    <div class="platform-detect" id="platform-detect"></div>
 
-                    <!-- Preview Card (hidden until URL is detected) -->
                     <div class="preview-card" id="preview-card" style="display:none;">
                         <img id="preview-thumb" class="preview-thumb" src="" alt="">
                         <div class="preview-info">
@@ -59,193 +56,144 @@
                         <div class="option-group">
                             <label>Quality</label>
                             <select id="quality">
-                                <option value="best">Best Available</option>
-                                <option value="hd">HD (1080p)</option>
-                                <option value="sd">SD (480p)</option>
+                                <option value="best">Best</option>
+                                <option value="hd">HD 1080p</option>
+                                <option value="sd">SD 480p</option>
                             </select>
                         </div>
                         <div class="option-group">
                             <label>Format</label>
                             <select id="format">
-                                <option value="video">Video (MP4)</option>
-                                <option value="audio">Audio Only (MP3)</option>
+                                <option value="video">Video MP4</option>
+                                <option value="audio">Audio MP3</option>
                             </select>
                         </div>
-                        <button class="btn btn-download" id="btn-download">
-                            <span class="btn-icon">⬇️</span>
-                            Download
-                        </button>
                     </div>
                 </div>
 
-                <!-- Batch Tab -->
                 <div class="tab-content" id="tab-batch">
-                    <textarea id="batch-urls" rows="6" placeholder="Paste multiple URLs (one per line)&#10;https://www.youtube.com/watch?v=abc&#10;https://www.instagram.com/reel/ABC123/&#10;https://soundcloud.com/artist/track&#10;https://www.tiktok.com/@user/video/123"></textarea>
+                    <textarea id="batch-urls" rows="5" placeholder="One URL per line..."></textarea>
                     <div class="options-row">
                         <div class="option-group">
                             <label>Quality</label>
-                            <select id="batch-quality">
-                                <option value="best">Best Available</option>
-                                <option value="hd">HD (1080p)</option>
-                                <option value="sd">SD (480p)</option>
-                            </select>
+                            <select id="batch-quality"><option value="best">Best</option><option value="hd">HD</option><option value="sd">SD</option></select>
                         </div>
-                        <button class="btn btn-download" id="btn-batch-download">
-                            <span class="btn-icon">⬇️</span>
-                            Download All
-                        </button>
+                        <button class="btn btn-primary" id="btn-batch-download">Download All</button>
                     </div>
                 </div>
             </section>
 
-            <!-- Supported Platforms -->
-            <section class="platforms-grid">
-                <div class="platform-card" data-platform="youtube">
-                    <div class="platform-icon">▶️</div>
-                    <h3>YouTube</h3>
-                    <p>Videos · Music · Playlists · Shorts</p>
-                </div>
-                <div class="platform-card" data-platform="instagram">
-                    <div class="platform-icon">📸</div>
-                    <h3>Instagram</h3>
-                    <p>Reels · Stories · Posts · IGTV</p>
-                </div>
-                <div class="platform-card" data-platform="tiktok">
-                    <div class="platform-icon">🎵</div>
-                    <h3>TikTok</h3>
-                    <p>Videos · No Watermark · Audio</p>
-                </div>
-                <div class="platform-card" data-platform="soundcloud">
-                    <div class="platform-icon">🔊</div>
-                    <h3>SoundCloud</h3>
-                    <p>Tracks · Playlists · Albums</p>
-                </div>
-                <div class="platform-card" data-platform="twitter">
-                    <div class="platform-icon">🐦</div>
-                    <h3>X / Twitter</h3>
-                    <p>Videos · Images · GIFs · Threads</p>
-                </div>
-                <div class="platform-card" data-platform="pinterest">
-                    <div class="platform-icon">📌</div>
-                    <h3>Pinterest</h3>
-                    <p>Videos · Images · GIFs · Pins</p>
-                </div>
-            </section>
-
-            <!-- Music Search Section -->
-            <section class="card search-card">
-                <div class="card-header">
-                    <h2>🎵 Search Music</h2>
-                    <span class="search-badge">Deezer · YouTube · SoundCloud</span>
-                </div>
-                <div class="search-bar">
-                    <div class="input-wrapper">
-                        <input type="text" id="music-search-input" placeholder="Search songs, artists, albums..." autocomplete="off">
-                        <button class="btn btn-search" id="btn-music-search">
-                            <span>🔍</span>
-                        </button>
-                    </div>
-                </div>
-                <!-- Category Filter Tabs -->
-                <div class="category-tabs" id="category-tabs" style="display:none;">
-                    <button class="cat-tab active" data-cat="all">All</button>
-                    <button class="cat-tab" data-cat="track">🎵 Tracks</button>
-                    <button class="cat-tab" data-cat="album">💿 Albums</button>
-                    <button class="cat-tab" data-cat="artist">👤 Artists</button>
-                </div>
-                <div id="search-status" class="search-status"></div>
-                <div id="search-results" class="search-results"></div>
-                <div id="search-load-more" style="display:none; text-align:center; padding:16px;">
-                    <button class="btn btn-sm" id="btn-load-more">Load More</button>
-                </div>
-            </section>
-
-            <!-- Now Playing Bar -->
-            <div id="now-playing" class="now-playing" style="display:none;">
-                <audio id="np-audio" preload="none"></audio>
-                <div class="np-inner">
-                    <!-- Left: cover + info -->
-                    <div class="np-left">
-                        <img id="np-cover" class="np-cover" src="" alt="">
-                        <div class="np-info">
-                            <div class="np-title" id="np-title">—</div>
-                            <div class="np-artist" id="np-artist">—</div>
-                        </div>
-                    </div>
-
-                    <!-- Center: controls + progress -->
-                    <div class="np-center">
-                        <div class="np-controls">
-                            <button class="np-btn" id="np-shuffle" title="Shuffle" aria-label="Shuffle">🔀</button>
-                            <button class="np-btn" id="np-prev" title="Previous" aria-label="Previous">⏮</button>
-                            <button class="np-btn np-btn-play" id="np-playpause" title="Play/Pause" aria-label="Play/Pause">▶</button>
-                            <button class="np-btn" id="np-next" title="Next" aria-label="Next">⏭</button>
-                            <button class="np-btn" id="np-repeat" title="Repeat" aria-label="Repeat">🔁</button>
-                        </div>
-                        <div class="np-progress-wrap">
-                            <span class="np-time-label" id="np-current">0:00</span>
-                            <div class="np-progress-bar" id="np-progress-bar">
-                                <div class="np-progress-fill" id="np-progress-fill"></div>
-                            </div>
-                            <span class="np-time-label" id="np-duration">0:00</span>
-                        </div>
-                    </div>
-
-                    <!-- Right: volume + actions -->
-                    <div class="np-right">
-                        <div class="np-volume-wrap">
-                            <button class="np-btn np-btn-vol" id="np-vol-icon" title="Volume">🔊</button>
-                            <input type="range" id="np-volume" class="np-volume-slider" min="0" max="1" step="0.01" value="1">
-                        </div>
-                        <button class="np-btn" id="np-download" title="Download">⬇️</button>
-                        <button class="np-btn np-btn-close" id="np-close" title="Close">✕</button>
-                    </div>
-                </div>
+            <!-- Platform Grid -->
+            <div class="platform-chips">
+                <span class="chip" data-p="youtube">▶️ YouTube</span>
+                <span class="chip" data-p="instagram">📸 Instagram</span>
+                <span class="chip" data-p="tiktok">🎵 TikTok</span>
+                <span class="chip" data-p="soundcloud">🔊 SoundCloud</span>
+                <span class="chip" data-p="twitter">🐦 X</span>
+                <span class="chip" data-p="pinterest">📌 Pinterest</span>
+                <span class="chip" data-p="generic">🌐 1800+ more</span>
             </div>
 
-            <!-- Progress Section -->
-            <section class="card progress-card" id="progress-section" style="display: none;">
-                <div class="card-header">
-                    <h2>⏳ Progress</h2>
-                </div>
-                <div class="progress-bar-wrapper">
-                    <div class="progress-bar" id="progress-bar"></div>
-                </div>
-                <div id="progress-status" class="progress-status">Preparing download...</div>
+            <!-- Progress -->
+            <section class="card" id="progress-section" style="display:none;">
+                <div class="card-header"><h2>⏳ Progress</h2></div>
+                <div class="progress-track"><div class="progress-fill" id="progress-bar"></div></div>
+                <div class="progress-label" id="progress-status">Preparing...</div>
             </section>
 
-            <!-- Results Section -->
-            <section class="card results-card" id="results-section" style="display: none;">
-                <div class="card-header">
-                    <h2>✅ Downloaded Files</h2>
-                </div>
+            <!-- Results -->
+            <section class="card" id="results-section" style="display:none;">
+                <div class="card-header"><h2>✅ Downloaded</h2></div>
                 <div id="results-list"></div>
             </section>
 
-            <!-- History Section -->
-            <section class="card history-card">
+            <!-- History -->
+            <section class="card">
                 <div class="card-header">
-                    <h2>📊 History</h2>
-                    <button class="btn btn-sm" id="btn-refresh-history">Refresh</button>
+                    <h2>History</h2>
+                    <button class="btn btn-ghost" id="btn-refresh-history">↻</button>
                 </div>
-                <div id="history-list" class="history-list">
-                    <p class="empty-state">No downloads yet. Paste a URL above to get started!</p>
-                </div>
+                <div id="history-list"><p class="empty-state">No downloads yet.</p></div>
             </section>
-        </main>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="container">
-                <p>XCRDownloader v1.3.0 — Free & Open Source</p>
-                <p class="footer-links">
-                    <a href="https://github.com/MohammadAliMehri/XCRDownloader" target="_blank">GitHub</a>
-                    <span>·</span>
-                    <span>Supports 1800+ sites via yt-dlp</span>
-                </p>
-            </div>
-        </footer>
+        </div>
     </div>
+
+    <!-- ===================== PLAYER PAGE ===================== -->
+    <div class="page" id="page-player">
+        <div class="player-layout">
+            <!-- Left: Search + Results -->
+            <div class="player-left">
+                <!-- Search -->
+                <div class="player-search">
+                    <input type="text" id="music-search-input" class="input-main" placeholder="Search songs, videos, podcasts..." autocomplete="off">
+                </div>
+                <!-- Category Pills -->
+                <div class="category-pills" id="category-tabs" style="display:none;">
+                    <button class="pill active" data-cat="all">All</button>
+                    <button class="pill" data-cat="track">🎵 Music</button>
+                    <button class="pill" data-cat="video">🎬 Videos</button>
+                    <button class="pill" data-cat="podcast">🎙️ Podcasts</button>
+                    <button class="pill" data-cat="album">💿 Albums</button>
+                    <button class="pill" data-cat="artist">👤 Artists</button>
+                </div>
+                <div id="search-status" class="search-status"></div>
+                <div id="search-results" class="search-results"></div>
+                <div id="search-load-more" style="display:none;text-align:center;padding:12px;">
+                    <button class="btn btn-ghost" id="btn-load-more">Load more</button>
+                </div>
+            </div>
+
+            <!-- Right: Now Playing + Queue -->
+            <div class="player-right">
+                <!-- Now Playing Hero -->
+                <div class="np-hero" id="np-hero">
+                    <div class="np-art-wrap">
+                        <img id="np-cover" class="np-art" src="" alt="">
+                        <video id="np-video" class="np-video-art" preload="none" style="display:none;" playsinline></video>
+                        <div class="np-art-placeholder" id="np-art-placeholder">🎵</div>
+                    </div>
+                    <div class="np-details">
+                        <div class="np-title" id="np-title">Nothing playing</div>
+                        <div class="np-artist" id="np-artist">Search and pick a track</div>
+                    </div>
+                    <!-- Progress -->
+                    <div class="np-seek">
+                        <span class="np-time" id="np-current">0:00</span>
+                        <div class="np-progress-bar" id="np-progress-bar">
+                            <div class="np-progress-fill" id="np-progress-fill"></div>
+                        </div>
+                        <span class="np-time" id="np-duration">0:00</span>
+                    </div>
+                    <!-- Controls -->
+                    <div class="np-controls">
+                        <button class="np-ctrl" id="np-shuffle" title="Shuffle">🔀</button>
+                        <button class="np-ctrl" id="np-prev" title="Previous">⏮</button>
+                        <button class="np-ctrl np-play-btn" id="np-playpause" title="Play">▶</button>
+                        <button class="np-ctrl" id="np-next" title="Next">⏭</button>
+                        <button class="np-ctrl" id="np-repeat" title="Repeat">🔁</button>
+                    </div>
+                    <!-- Volume + Actions -->
+                    <div class="np-bottom">
+                        <button class="np-ctrl" id="np-video-toggle" title="Toggle Video" style="display:none;">🎬</button>
+                        <div class="np-volume">
+                            <button class="np-ctrl np-vol-btn" id="np-vol-icon">🔊</button>
+                            <input type="range" id="np-volume" class="vol-slider" min="0" max="1" step="0.01" value="1">
+                        </div>
+                        <button class="np-ctrl" id="np-download" title="Download">⬇️</button>
+                    </div>
+                </div>
+
+                <!-- Queue -->
+                <div class="np-queue" id="np-queue">
+                    <div class="queue-header">Queue</div>
+                    <div class="queue-list" id="queue-list"><p class="empty-state">Queue is empty</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden audio element -->
+    <audio id="np-audio" preload="none"></audio>
 
     <script src="/static/js/app.js"></script>
 </body>

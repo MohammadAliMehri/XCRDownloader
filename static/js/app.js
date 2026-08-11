@@ -1,39 +1,19 @@
 /**
- * XCRDownloader — Web UI JavaScript v1.1
- * Auto-preview, platform detection, download management
+ * XCRDownloader — Web UI v1.4
+ * Downloader + Music/Video/Podcast Player
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Elements
-    const urlInput = document.getElementById('url-input');
-    const btnDetect = document.getElementById('btn-detect');
-    const btnDownload = document.getElementById('btn-download');
-    const btnBatchDownload = document.getElementById('btn-batch-download');
-    const batchUrls = document.getElementById('batch-urls');
-    const qualitySelect = document.getElementById('quality');
-    const formatSelect = document.getElementById('format');
-    const platformDetect = document.getElementById('platform-detect');
-    const previewCard = document.getElementById('preview-card');
-    const previewThumb = document.getElementById('preview-thumb');
-    const previewTitle = document.getElementById('preview-title');
-    const previewMeta = document.getElementById('preview-meta');
-    const previewDesc = document.getElementById('preview-desc');
-    const progressSection = document.getElementById('progress-section');
-    const progressBar = document.getElementById('progress-bar');
-    const progressStatus = document.getElementById('progress-status');
-    const resultsSection = document.getElementById('results-section');
-    const resultsList = document.getElementById('results-list');
-    const historyList = document.getElementById('history-list');
-    const btnRefresh = document.getElementById('btn-refresh-history');
+    // ===== TOP NAV =====
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('page-' + tab.dataset.page).classList.add('active');
+        });
+    });
 
-    const PLATFORM_ICONS = {
-        instagram: '📸', tiktok: '🎵', twitter: '🐦',
-        pinterest: '📌', youtube: '▶️', soundcloud: '🔊',
-        youtube_music: '🎶', generic: '🌐'
-    };
-
-    let currentPreviewUrl = '';
-
-    // Tab switching
+    // ===== DOWNLOADER TABS =====
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -43,769 +23,452 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ---- Auto-detect + Preview on URL input ----
+    const PLATFORM_ICONS = {
+        instagram: '📸', tiktok: '🎵', twitter: '🐦', pinterest: '📌',
+        youtube: '▶️', soundcloud: '🔊', youtube_music: '🎶', generic: '🌐'
+    };
+
+    // ===== URL PREVIEW =====
+    const urlInput = document.getElementById('url-input');
+    const platformDetect = document.getElementById('platform-detect');
+    const previewCard = document.getElementById('preview-card');
+    const previewThumb = document.getElementById('preview-thumb');
+    const previewTitle = document.getElementById('preview-title');
+    const previewMeta = document.getElementById('preview-meta');
+    const previewDesc = document.getElementById('preview-desc');
+    const qualitySelect = document.getElementById('quality');
+    const formatSelect = document.getElementById('format');
+
     let detectTimer;
     urlInput.addEventListener('input', () => {
         clearTimeout(detectTimer);
-        const url = urlInput.value.trim();
         hidePreview();
-        if (!url) { platformDetect.innerHTML = ''; return; }
-        if (url.startsWith('http')) {
-            detectTimer = setTimeout(() => fetchPreview(url), 500);
-        }
-    });
-
-    btnDetect.addEventListener('click', () => {
         const url = urlInput.value.trim();
-        if (url) fetchPreview(url);
+        if (!url) { platformDetect.innerHTML = ''; return; }
+        if (url.startsWith('http')) detectTimer = setTimeout(() => fetchPreview(url), 500);
     });
 
     async function fetchPreview(url) {
-        platformDetect.innerHTML = '<span style="color:var(--text-muted)">⏳ Detecting...</span>';
+        platformDetect.innerHTML = '<span style="color:var(--text-2)">⏳ Detecting...</span>';
         hidePreview();
-
         try {
-            // Step 1: fast local detect
-            const detResp = await fetch('/api/detect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-            });
-            const det = await detResp.json();
-            const platform = det.platform || 'generic';
-            const icon = PLATFORM_ICONS[platform] || '🌐';
-            platformDetect.innerHTML = `
-                <span class="platform-badge ${platform}">${icon} ${platform.toUpperCase()}</span>
-                <span style="margin-left:8px;color:var(--text-muted)">→ ${det.handler}</span>
-                <span class="preview-loading" style="margin-left:12px;color:var(--text-muted)">⏳ Loading preview...</span>
-            `;
-
-            // Step 2: fetch preview metadata (slower, server-side)
-            const prevResp = await fetch('/api/preview', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-            });
-            const data = await prevResp.json();
-
-            // Remove loading indicator
-            const loadEl = platformDetect.querySelector('.preview-loading');
-            if (loadEl) loadEl.remove();
-
-            if (data.success && data.preview) {
-                showPreview(data.preview, platform);
-            } else if (data.error) {
-                platformDetect.innerHTML += `<span style="margin-left:12px;color:var(--warning);font-size:0.8rem">⚠ ${data.error}</span>`;
-            }
-        } catch (e) {
-            platformDetect.innerHTML = '<span style="color:var(--error)">Detection failed</span>';
-        }
+            const det = await (await fetch('/api/detect', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) })).json();
+            const p = det.platform || 'generic';
+            const icon = PLATFORM_ICONS[p] || '🌐';
+            platformDetect.innerHTML = `<span class="platform-badge ${p}">${icon} ${p.toUpperCase()}</span><span style="margin-left:8px;color:var(--text-3)">→ ${det.handler}</span><span class="pl" style="margin-left:12px;color:var(--text-3)">⏳ Loading...</span>`;
+            const data = await (await fetch('/api/preview', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) })).json();
+            const pl = platformDetect.querySelector('.pl'); if (pl) pl.remove();
+            if (data.success && data.preview) showPreview(data.preview, p);
+            else if (data.error) platformDetect.innerHTML += `<span style="margin-left:12px;color:var(--warning);font-size:0.8rem">⚠ ${data.error}</span>`;
+        } catch { platformDetect.innerHTML = '<span style="color:var(--error)">Failed</span>'; }
     }
 
     function showPreview(p, platform) {
-        currentPreviewUrl = urlInput.value.trim();
         previewCard.style.display = 'flex';
-        previewCard.className = 'preview-card fade-in';
-
-        // Thumbnail
-        if (p.thumbnail) {
-            previewThumb.src = p.thumbnail;
-            previewThumb.style.display = 'block';
-        } else {
-            previewThumb.style.display = 'none';
-        }
-
-        // Title
+        if (p.thumbnail) { previewThumb.src = p.thumbnail; previewThumb.style.display = 'block'; }
+        else previewThumb.style.display = 'none';
         previewTitle.textContent = p.title || 'Unknown';
-
-        // Meta line
         const parts = [];
         if (p.uploader) parts.push(p.uploader);
         if (p.duration_str) parts.push(p.duration_str);
-        else if (p.duration) parts.push(formatDuration(p.duration));
-        if (p.view_count) parts.push(formatNumber(p.view_count) + ' views');
-        if (p.like_count) parts.push(formatNumber(p.like_count) + ' likes');
-        if (p.genre) parts.push(p.genre);
+        else if (p.duration) parts.push(fmtDur(p.duration));
+        if (p.view_count) parts.push(fmtNum(p.view_count) + ' views');
         previewMeta.textContent = parts.join(' · ');
-
-        // Description
-        if (p.description) {
-            previewDesc.textContent = p.description.substring(0, 200);
-            previewDesc.style.display = 'block';
-        } else {
-            previewDesc.style.display = 'none';
-        }
-
-        // Auto-select audio for music platforms
-        if (platform === 'soundcloud' || platform === 'youtube_music') {
-            formatSelect.value = 'audio';
-        }
+        if (p.description) { previewDesc.textContent = p.description.substring(0, 200); previewDesc.style.display = 'block'; }
+        else previewDesc.style.display = 'none';
+        if (platform === 'soundcloud' || platform === 'youtube_music') formatSelect.value = 'audio';
     }
+    function hidePreview() { previewCard.style.display = 'none'; }
 
-    function hidePreview() {
-        previewCard.style.display = 'none';
-        currentPreviewUrl = '';
-    }
+    // ===== DOWNLOAD =====
+    const progressSection = document.getElementById('progress-section');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const resultsSection = document.getElementById('results-section');
+    const resultsList = document.getElementById('results-list');
+    const historyList = document.getElementById('history-list');
 
-    function formatDuration(sec) {
-        if (!sec) return '';
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        return m + ':' + String(s).padStart(2, '0');
-    }
-
-    function formatNumber(n) {
-        if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
-        if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-        return String(n);
-    }
-
-    // ---- Download ----
-    btnDownload.addEventListener('click', startDownload);
-    urlInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') startDownload();
-    });
+    document.getElementById('btn-download').addEventListener('click', startDownload);
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') startDownload(); });
 
     async function startDownload() {
         const url = urlInput.value.trim();
-        if (!url) { shakeInput(urlInput); return; }
-
-        btnDownload.classList.add('loading');
-        btnDownload.innerHTML = '<span class="btn-icon">⏳</span> Downloading...';
-        showProgress('Starting download...');
-        hideResults();
-
+        if (!url) { shake(urlInput); return; }
+        const btn = document.getElementById('btn-download');
+        btn.textContent = '⏳ Downloading...';
+        showProgress('Starting...');
         try {
-            const resp = await fetch('/api/download', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url,
-                    quality: qualitySelect.value,
-                    audio_only: formatSelect.value === 'audio'
-                })
-            });
-            const data = await resp.json();
-            if (data.job_id) {
-                pollJob(data.job_id);
-            } else {
-                showError(data.error || 'Failed to start download');
-            }
-        } catch (e) {
-            showError('Network error: ' + e.message);
-        }
+            const data = await (await fetch('/api/download', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, quality:qualitySelect.value, audio_only:formatSelect.value==='audio'}) })).json();
+            if (data.job_id) pollJob(data.job_id); else showError(data.error || 'Failed');
+        } catch(e) { showError('Network: ' + e.message); }
     }
 
-    // ---- Batch Download ----
-    btnBatchDownload.addEventListener('click', startBatchDownload);
-
-    async function startBatchDownload() {
-        const text = batchUrls.value.trim();
-        if (!text) { shakeInput(batchUrls); return; }
-
-        const urls = text.split('\n').map(u => u.trim()).filter(u => u && u.startsWith('http'));
-        if (urls.length === 0) { showError('No valid URLs found'); return; }
-
-        btnBatchDownload.classList.add('loading');
-        btnBatchDownload.innerHTML = '<span class="btn-icon">⏳</span> Downloading...';
-        showProgress(`Starting batch download of ${urls.length} URLs...`);
-        hideResults();
-
+    document.getElementById('btn-batch-download').addEventListener('click', async () => {
+        const text = document.getElementById('batch-urls').value.trim();
+        if (!text) { shake(document.getElementById('batch-urls')); return; }
+        const urls = text.split('\n').map(u=>u.trim()).filter(u=>u.startsWith('http'));
+        if (!urls.length) { showError('No valid URLs'); return; }
+        showProgress(`Batch: ${urls.length} URLs...`);
         try {
-            const resp = await fetch('/api/batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    urls,
-                    quality: document.getElementById('batch-quality').value
-                })
-            });
-            const data = await resp.json();
-            if (data.job_id) {
-                pollJob(data.job_id, true);
-            } else {
-                showError(data.error || 'Failed to start batch');
-            }
-        } catch (e) {
-            showError('Network error: ' + e.message);
-        }
-    }
+            const data = await (await fetch('/api/batch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({urls, quality:document.getElementById('batch-quality').value}) })).json();
+            if (data.job_id) pollJob(data.job_id, true); else showError(data.error || 'Failed');
+        } catch(e) { showError('Network: ' + e.message); }
+    });
 
-    // ---- Poll job status ----
-    async function pollJob(jobId, isBatch = false) {
+    async function pollJob(jobId, isBatch=false) {
         progressBar.classList.add('indeterminate');
         progressStatus.textContent = 'Downloading...';
-
-        const interval = setInterval(async () => {
+        const iv = setInterval(async () => {
             try {
-                const resp = await fetch(`/api/job/${jobId}`);
-                const job = await resp.json();
-
-                if (job.status === 'completed') {
-                    clearInterval(interval);
+                const job = await (await fetch(`/api/job/${jobId}`)).json();
+                if (job.status === 'completed' || job.status === 'failed') {
+                    clearInterval(iv);
                     progressBar.classList.remove('indeterminate');
                     progressBar.style.width = '100%';
-                    progressStatus.textContent = 'Download complete!';
-                    if (isBatch) showBatchResults(job.results || []);
-                    else showResult(job.result);
-                    resetButtons();
-                    loadHistory();
-                } else if (job.status === 'failed') {
-                    clearInterval(interval);
-                    progressBar.classList.remove('indeterminate');
-                    progressBar.style.width = '100%';
-                    progressBar.style.background = 'var(--error)';
-                    progressStatus.textContent = 'Download failed';
-                    if (isBatch) showBatchResults(job.results || []);
-                    else showError(job.result?.error || 'Download failed');
-                    resetButtons();
-                    loadHistory();
+                    progressStatus.textContent = job.status === 'completed' ? 'Done!' : 'Failed';
+                    if (job.status === 'failed') progressBar.style.background = 'var(--error)';
+                    if (isBatch) showBatchResults(job.results||[]);
+                    else job.status === 'completed' ? showResult(job.result) : showError(job.result?.error||'Failed');
+                    resetBtns(); loadHistory();
                 }
-            } catch (e) { /* keep polling */ }
+            } catch {}
         }, 1000);
-
-        setTimeout(() => { clearInterval(interval); resetButtons(); }, 300000);
+        setTimeout(() => clearInterval(iv), 300000);
     }
 
-    function showResult(result) {
+    function showResult(r) {
         resultsSection.style.display = 'block';
+        if (!r?.success) { resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Failed</div><div class="meta" style="color:var(--error)">${r?.error||'Unknown'}</div></div></div>`; return; }
         resultsList.innerHTML = '';
-
-        if (!result || !result.success) {
-            resultsList.innerHTML = `
-                <div class="result-item fade-in">
-                    <span class="result-icon">❌</span>
-                    <div class="result-info">
-                        <div class="filename">Download Failed</div>
-                        <div class="meta" style="color:var(--error)">${result?.error || 'Unknown error'}</div>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        const info = result.info || {};
-        for (const file of (result.files || [])) {
-            const ext = file.ext || '';
-            const icon = ext === '.mp4' ? '🎬' : ext === '.mp3' ? '🎵' : '🖼️';
-            resultsList.innerHTML += `
-                <div class="result-item fade-in">
-                    <span class="result-icon">${icon}</span>
-                    <div class="result-info">
-                        <div class="filename">${file.path?.split('/').pop()?.split('\\\\').pop() || 'File'}</div>
-                        <div class="meta">${file.size_human || ''} ${info.title ? '· ' + info.title.substring(0, 60) : ''}</div>
-                    </div>
-                    <span class="result-status">✅</span>
-                </div>`;
+        for (const f of r.files||[]) {
+            resultsList.innerHTML += `<div class="result-item fade-in"><span class="result-icon">${f.ext==='.mp4'?'🎬':'🎵'}</span><div class="result-info"><div class="filename">${f.path?.split(/[\\/]/).pop()||'File'}</div><div class="meta">${f.size_human||''}</div></div><span class="result-status">✅</span></div>`;
         }
     }
-
     function showBatchResults(results) {
         resultsSection.style.display = 'block';
-        resultsList.innerHTML = '';
-
-        const success = results.filter(r => r.success).length;
-        resultsList.innerHTML += `
-            <div class="result-item fade-in" style="background:var(--accent);color:white;border:none;">
-                <span class="result-icon">📊</span>
-                <div class="result-info">
-                    <div class="filename">${success}/${results.length} downloads successful</div>
-                </div>
-            </div>`;
-
-        for (const result of results) {
-            const platform = result.platform || 'generic';
-            const icon = PLATFORM_ICONS[platform] || '🌐';
-            if (result.success) {
-                for (const file of (result.files || [])) {
-                    resultsList.innerHTML += `
-                        <div class="result-item fade-in">
-                            <span class="result-icon">${icon}</span>
-                            <div class="result-info">
-                                <div class="filename">${file.path?.split('/').pop()?.split('\\\\').pop() || 'File'}</div>
-                                <div class="meta">${file.size_human || ''}</div>
-                            </div>
-                            <span class="result-status">✅</span>
-                        </div>`;
-                }
-            } else {
-                resultsList.innerHTML += `
-                    <div class="result-item fade-in">
-                        <span class="result-icon">${icon}</span>
-                        <div class="result-info">
-                            <div class="filename">${result.url || 'URL'}</div>
-                            <div class="meta" style="color:var(--error)">${result.error || 'Failed'}</div>
-                        </div>
-                        <span class="result-status">❌</span>
-                    </div>`;
+        const ok = results.filter(r=>r.success).length;
+        resultsList.innerHTML = `<div class="result-item" style="background:var(--accent);color:white;border:none;"><span class="result-icon">📊</span><div class="result-info"><div class="filename">${ok}/${results.length} successful</div></div></div>`;
+        for (const r of results) {
+            for (const f of r.files||[]) {
+                resultsList.innerHTML += `<div class="result-item"><span class="result-icon">${PLATFORM_ICONS[r.platform]||'🌐'}</span><div class="result-info"><div class="filename">${f.path?.split(/[\\/]/).pop()||'File'}</div><div class="meta">${f.size_human||''}</div></div><span class="result-status">${r.success?'✅':'❌'}</span></div>`;
             }
         }
     }
-
     function showError(msg) {
         resultsSection.style.display = 'block';
-        resultsList.innerHTML = `
-            <div class="result-item fade-in">
-                <span class="result-icon">❌</span>
-                <div class="result-info">
-                    <div class="filename">Error</div>
-                    <div class="meta" style="color:var(--error)">${msg}</div>
-                </div>
-            </div>`;
-        resetButtons();
+        resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Error</div><div class="meta" style="color:var(--error)">${msg}</div></div></div>`;
+        resetBtns();
     }
+    function showProgress(msg) { progressSection.style.display='block'; progressBar.style.width='0%'; progressBar.style.background=''; progressStatus.textContent=msg; }
+    function resetBtns() { document.getElementById('btn-download').textContent='Download'; }
 
-    function showProgress(msg) {
-        progressSection.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.style.background = '';
-        progressStatus.textContent = msg;
-    }
-
-    function hideResults() {
-        resultsSection.style.display = 'none';
-        resultsList.innerHTML = '';
-    }
-
-    function resetButtons() {
-        btnDownload.classList.remove('loading');
-        btnDownload.innerHTML = '<span class="btn-icon">⬇️</span> Download';
-        btnBatchDownload.classList.remove('loading');
-        btnBatchDownload.innerHTML = '<span class="btn-icon">⬇️</span> Download All';
-    }
-
-    function shakeInput(el) {
-        el.style.animation = 'none';
-        el.offsetHeight;
-        el.style.animation = 'shake 0.3s ease';
-        el.style.borderColor = 'var(--error)';
-        setTimeout(() => { el.style.borderColor = ''; }, 1000);
-    }
-
-    // ---- History ----
-    btnRefresh.addEventListener('click', loadHistory);
+    // History
+    document.getElementById('btn-refresh-history').addEventListener('click', loadHistory);
     loadHistory();
-
     async function loadHistory() {
         try {
-            const resp = await fetch('/api/history');
-            const data = await resp.json();
-            const jobs = (data.jobs || []).reverse();
-
-            if (jobs.length === 0) {
-                historyList.innerHTML = '<p class="empty-state">No downloads yet. Paste a URL above to get started!</p>';
-                return;
-            }
-
+            const data = await (await fetch('/api/history')).json();
+            const jobs = (data.jobs||[]).reverse();
+            if (!jobs.length) { historyList.innerHTML = '<p class="empty-state">No downloads yet.</p>'; return; }
             historyList.innerHTML = '';
-            for (const job of jobs.slice(0, 20)) {
-                const platform = job.platform || 'generic';
-                const icon = PLATFORM_ICONS[platform] || '🌐';
-                const statusClass = job.status === 'completed' ? 'completed' :
-                                    job.status === 'failed' ? 'failed' : 'downloading';
-                const url = job.url || (job.urls ? `${job.urls.length} URLs` : '');
-                historyList.innerHTML += `
-                    <div class="history-item">
-                        <span class="history-platform">${icon}</span>
-                        <div class="history-info">
-                            <div class="url" title="${url}">${url}</div>
-                            <div class="time">${job.created_at || ''}</div>
-                        </div>
-                        <span class="history-status ${statusClass}">${job.status}</span>
-                    </div>`;
+            for (const j of jobs.slice(0,20)) {
+                const p = j.platform||'generic';
+                const sc = j.status==='completed'?'completed':j.status==='failed'?'failed':'downloading';
+                const url = j.url || (j.urls?`${j.urls.length} URLs`:'');
+                historyList.innerHTML += `<div class="history-item"><span class="history-platform">${PLATFORM_ICONS[p]||'🌐'}</span><div class="history-info"><div class="url" title="${url}">${url}</div><div class="time">${j.created_at||''}</div></div><span class="history-status ${sc}">${j.status}</span></div>`;
             }
-        } catch (e) { /* silent */ }
+        } catch {}
     }
-});
 
-// Shake animation
-const style = document.createElement('style');
-style.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }`;
-document.head.appendChild(style);
+    function fmtDur(sec) { if(!sec)return''; const m=Math.floor(sec/60),s=Math.floor(sec%60); return m+':'+String(s).padStart(2,'0'); }
+    function fmtNum(n) { if(n>=1e9)return(n/1e9).toFixed(1)+'B'; if(n>=1e6)return(n/1e6).toFixed(1)+'M'; if(n>=1e3)return(n/1e3).toFixed(1)+'K'; return String(n); }
+    function shake(el) { el.style.animation='none'; el.offsetHeight; el.style.animation='shake 0.3s ease'; el.style.borderColor='var(--error)'; setTimeout(()=>{el.style.borderColor='';},1000); }
 
-// =========================================================================
-// Music Search + Player
-// =========================================================================
-(function() {
+    // =========================================================================
+    // PLAYER
+    // =========================================================================
     const searchInput = document.getElementById('music-search-input');
-    const btnSearch = document.getElementById('btn-music-search');
     const searchResults = document.getElementById('search-results');
     const searchStatus = document.getElementById('search-status');
     const searchLoadMore = document.getElementById('search-load-more');
-    const btnLoadMore = document.getElementById('btn-load-more');
     const categoryTabs = document.getElementById('category-tabs');
+    const btnLoadMore = document.getElementById('btn-load-more');
 
-    // Now Playing elements
-    const npBar = document.getElementById('now-playing');
-    const npAudio = document.getElementById('np-audio');
+    // Player elements
     const npCover = document.getElementById('np-cover');
+    const npVideo = document.getElementById('np-video');
+    const npAudio = document.getElementById('np-audio');
     const npTitle = document.getElementById('np-title');
     const npArtist = document.getElementById('np-artist');
     const npPlayPause = document.getElementById('np-playpause');
     const npProgressFill = document.getElementById('np-progress-fill');
     const npCurrent = document.getElementById('np-current');
     const npDuration = document.getElementById('np-duration');
-    const npDownload = document.getElementById('np-download');
-    const npClose = document.getElementById('np-close');
     const npPrev = document.getElementById('np-prev');
     const npNext = document.getElementById('np-next');
     const npShuffle = document.getElementById('np-shuffle');
     const npRepeat = document.getElementById('np-repeat');
     const npVolume = document.getElementById('np-volume');
     const npVolIcon = document.getElementById('np-vol-icon');
+    const npVideoToggle = document.getElementById('np-video-toggle');
+    const npDownload = document.getElementById('np-download');
+    const npArtWrap = document.querySelector('.np-art-wrap');
+    const npPlaceholder = document.getElementById('np-art-placeholder');
+    const queueList = document.getElementById('queue-list');
 
-    const SOURCE_ICONS = { deezer: '🎶', youtube: '▶️', soundcloud: '🔊' };
-    const SOURCE_COLORS = { deezer: '#a23de8', youtube: '#ff0000', soundcloud: '#ff5500' };
+    const SRC_TAG = { deezer:'tag-deezer', youtube:'tag-youtube', soundcloud:'tag-soundcloud' };
+    const KIND_ICON = { track:'🎵', video:'🎬', podcast:'🎙️', album:'💿', artist:'👤' };
 
-    let currentQuery = '';
-    let currentPage = 0;
-    let currentTrack = null;
-    let currentTrackIndex = -1;
-    let isPlaying = false;
-    let shuffleOn = false;
-    let repeatOn = false;
-    let allResults = [];       // full unfiltered results
-    let trackQueue = [];       // playable tracks (kind === 'track') for prev/next
+    let currentQuery = '', currentPage = 0, allResults = [], trackQueue = [];
+    let currentTrack = null, currentIdx = -1, isPlaying = false;
+    let shuffleOn = false, repeatOn = false, videoMode = false;
     let activeCategory = 'all';
 
-    // --- Category Filter ---
-    categoryTabs.addEventListener('click', (e) => {
-        const tab = e.target.closest('.cat-tab');
-        if (!tab) return;
-        categoryTabs.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        activeCategory = tab.dataset.cat;
-        filterAndRender();
+    function activeMedia() { return videoMode ? npVideo : npAudio; }
+
+    // Category filter
+    categoryTabs.addEventListener('click', e => {
+        const pill = e.target.closest('.pill');
+        if (!pill) return;
+        categoryTabs.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeCategory = pill.dataset.cat;
+        filterRender();
     });
 
-    function filterAndRender() {
+    function filterRender() {
         searchResults.innerHTML = '';
-        const filtered = activeCategory === 'all'
-            ? allResults
-            : allResults.filter(r => r.kind === activeCategory);
-        for (const r of filtered) {
-            searchResults.appendChild(createResultCard(r));
-        }
-        // Update track queue from filtered tracks
-        trackQueue = filtered.filter(r => r.kind === 'track');
-        highlightActive();
+        const filtered = activeCategory === 'all' ? allResults : allResults.filter(r => r.kind === activeCategory);
+        for (const r of filtered) searchResults.appendChild(rowEl(r));
+        trackQueue = filtered.filter(r => r.kind === 'track' || r.kind === 'video' || r.kind === 'podcast');
+        renderQueue();
+        highlight();
     }
 
-    function highlightActive() {
-        searchResults.querySelectorAll('.sr-card').forEach(card => {
-            card.classList.remove('sr-card-active');
-            if (currentTrack && card.dataset.id === currentTrack.id) {
-                card.classList.add('sr-card-active');
-            }
+    function highlight() {
+        searchResults.querySelectorAll('.sr-row').forEach(el => {
+            el.classList.toggle('active', currentTrack && el.dataset.id === currentTrack.id);
+        });
+        queueList.querySelectorAll('.q-item').forEach(el => {
+            el.classList.toggle('active', currentTrack && el.dataset.idx === String(currentIdx));
         });
     }
 
-    // --- Search ---
+    // Search
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(searchInput.value, 0); });
+    btnLoadMore.addEventListener('click', () => doSearch(currentQuery, currentPage + 1));
+
     function doSearch(query, page) {
         if (!query.trim()) return;
-        currentQuery = query;
-        currentPage = page;
-
+        currentQuery = query; currentPage = page;
         if (page === 0) {
-            allResults = [];
-            searchResults.innerHTML = '';
-            searchStatus.innerHTML = '<span class="search-loading">⏳ Searching across Deezer, YouTube & SoundCloud...</span>';
+            allResults = []; searchResults.innerHTML = '';
+            searchStatus.innerHTML = '<span class="loading">⏳ Searching Deezer, YouTube & SoundCloud...</span>';
             categoryTabs.style.display = 'none';
         }
-
         fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`)
             .then(r => r.json())
             .then(data => {
                 searchStatus.innerHTML = '';
-                if (data.error) {
-                    searchStatus.innerHTML = `<span class="search-error">❌ ${data.error}</span>`;
-                    return;
-                }
+                if (data.error) { searchStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
                 const results = data.results || [];
-                if (results.length === 0 && page === 0) {
-                    searchStatus.innerHTML = '<span class="search-empty">No results found. Try a different query.</span>';
-                    categoryTabs.style.display = 'none';
-                    return;
-                }
+                if (!results.length && page === 0) { searchStatus.innerHTML = '<span class="empty">No results.</span>'; categoryTabs.style.display = 'none'; return; }
                 allResults = allResults.concat(results);
                 categoryTabs.style.display = 'flex';
-                filterAndRender();
+                filterRender();
                 searchLoadMore.style.display = data.has_more ? 'block' : 'none';
             })
-            .catch(e => {
-                searchStatus.innerHTML = `<span class="search-error">❌ Search failed: ${e.message}</span>`;
-            });
+            .catch(e => { searchStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`; });
     }
 
-    function createResultCard(r) {
-        const card = document.createElement('div');
-        card.className = 'sr-card fade-in';
-        card.dataset.id = r.id || '';
-        const source = r.source || 'unknown';
-        const icon = SOURCE_ICONS[source] || '🎵';
-        const color = SOURCE_COLORS[source] || 'var(--accent)';
-        const durationStr = r.duration ? formatDuration(r.duration) : '';
-        const kindLabel = r.kind === 'album' ? '💿 Album' : r.kind === 'artist' ? '👤 Artist' : '🎵 Track';
-        const coverHtml = r.cover
-            ? `<img class="sr-cover" src="${r.cover}" alt="" loading="lazy">`
-            : `<div class="sr-cover sr-cover-placeholder">${icon}</div>`;
-        const isPlayable = r.kind === 'track';
+    function rowEl(r) {
+        const el = document.createElement('div');
+        el.className = 'sr-row fade-in'; el.dataset.id = r.id || '';
+        const kind = r.kind || 'track';
+        const playable = kind === 'track' || kind === 'video' || kind === 'podcast';
+        const srcTag = SRC_TAG[r.source] || '';
+        const dur = r.duration ? fmtDur(r.duration) : '';
+        const cover = r.cover ? `<img class="sr-art" src="${r.cover}" alt="" loading="lazy">` : `<div class="sr-art ph">${KIND_ICON[kind]||'🎵'}</div>`;
 
-        card.innerHTML = `
-            ${isPlayable
-                ? `<div class="sr-play-btn" data-source-url="${escapeHtml(r.source_url || '')}" data-preview-url="${escapeHtml(r.preview_url || '')}" data-title="${escapeHtml(r.title)}" data-artist="${escapeHtml(r.artist)}" data-cover="${escapeHtml(r.cover || '')}" data-id="${escapeHtml(r.id || '')}">▶</div>`
-                : `<div class="sr-kind-icon">${r.kind === 'album' ? '💿' : '👤'}</div>`}
-            ${coverHtml}
-            <div class="sr-info">
-                <div class="sr-title">${escapeHtml(r.title)}</div>
-                <div class="sr-meta">
-                    <span class="sr-source" style="color:${color}">${icon} ${source}</span>
-                    <span class="sr-kind">${kindLabel}</span>
-                    ${r.artist ? `<span class="sr-artist">${escapeHtml(r.artist)}</span>` : ''}
-                    ${durationStr ? `<span class="sr-duration">${durationStr}</span>` : ''}
-                    ${r.album ? `<span class="sr-album">${escapeHtml(r.album)}</span>` : ''}
-                    ${r.track_count ? `<span class="sr-count">${r.track_count} tracks</span>` : ''}
+        el.innerHTML = `
+            ${playable ? `<button class="sr-play" data-i='${JSON.stringify({id:r.id,source_url:r.source_url,preview_url:r.preview_url,title:r.title,artist:r.artist,cover:r.cover,kind,has_video:r.has_video})}'>▶</button>` : `<div style="width:32px"></div>`}
+            ${cover}
+            <div class="sr-body">
+                <div class="sr-title">${esc(r.title)}</div>
+                <div class="sr-sub">
+                    <span class="tag ${srcTag}">${r.source||''}</span>
+                    <span>${KIND_ICON[kind]||''} ${kind}</span>
+                    ${r.artist?`<span>${esc(r.artist)}</span>`:''}
+                    ${dur?`<span>${dur}</span>`:''}
                 </div>
             </div>
-            ${isPlayable ? `<button class="sr-download-btn" data-source-url="${escapeHtml(r.source_url || '')}" data-title="${escapeHtml(r.title)}" data-artist="${escapeHtml(r.artist)}" title="Download">⬇️</button>` : ''}
+            ${playable?`<button class="sr-dl" data-src="${esc(r.source_url||'')}" data-t="${esc(r.title)}" data-a="${esc(r.artist)}">⬇</button>`:''}
         `;
 
-        if (isPlayable) {
-            const playBtn = card.querySelector('.sr-play-btn');
-            playBtn.addEventListener('click', () => {
-                const trackData = {
-                    id: playBtn.dataset.id,
-                    source_url: playBtn.dataset.sourceUrl,
-                    preview_url: playBtn.dataset.previewUrl,
-                    title: playBtn.dataset.title,
-                    artist: playBtn.dataset.artist,
-                    cover: playBtn.dataset.cover,
-                };
-                // Find index in track queue
-                const idx = trackQueue.findIndex(t => t.id === trackData.id);
-                currentTrackIndex = idx >= 0 ? idx : -1;
-                playTrack(trackData);
+        if (playable) {
+            el.querySelector('.sr-play').addEventListener('click', e => {
+                e.stopPropagation();
+                const d = JSON.parse(e.currentTarget.dataset.i);
+                const idx = trackQueue.findIndex(t => t.id === d.id);
+                currentIdx = idx >= 0 ? idx : -1;
+                playTrack(d);
             });
-
-            const dlBtn = card.querySelector('.sr-download-btn');
-            dlBtn.addEventListener('click', () => {
-                downloadTrack(dlBtn.dataset.sourceUrl, dlBtn.dataset.title, dlBtn.dataset.artist);
-            });
+            const dl = el.querySelector('.sr-dl');
+            if (dl) dl.addEventListener('click', e => { e.stopPropagation(); downloadTrack(dl.dataset.src, dl.dataset.t, dl.dataset.a); });
         }
+        // Click row to play
+        if (playable) el.addEventListener('click', () => {
+            const btn = el.querySelector('.sr-play');
+            if (btn) { const d = JSON.parse(btn.dataset.i); const idx = trackQueue.findIndex(t => t.id === d.id); currentIdx = idx >= 0 ? idx : -1; playTrack(d); }
+        });
 
-        return card;
+        return el;
     }
 
-    function escapeHtml(str) {
-        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // Queue
+    function renderQueue() {
+        if (!trackQueue.length) { queueList.innerHTML = '<p class="empty-state">Queue is empty</p>'; return; }
+        queueList.innerHTML = '';
+        trackQueue.forEach((t, i) => {
+            const el = document.createElement('div');
+            el.className = 'q-item'; el.dataset.idx = String(i);
+            el.innerHTML = `<span class="q-num">${i+1}</span><span class="q-title">${esc(t.title)}</span><span class="q-dur">${t.duration?fmtDur(t.duration):''}</span>`;
+            el.addEventListener('click', () => { currentIdx = i; playTrack(t); });
+            queueList.appendChild(el);
+        });
+        highlight();
     }
 
-    function formatDuration(sec) {
-        if (!sec) return '';
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        return m + ':' + String(s).padStart(2, '0');
-    }
-
-    // --- Play Track ---
+    // Play
     function playTrack(track) {
+        npAudio.pause(); npAudio.src = '';
+        npVideo.pause(); npVideo.src = '';
         currentTrack = track;
-
-        // Update now-playing bar
         npTitle.textContent = track.title || 'Unknown';
         npArtist.textContent = track.artist || '';
-        if (track.cover) {
-            npCover.src = track.cover;
-            npCover.style.display = 'block';
-        } else {
-            npCover.style.display = 'none';
-        }
-        npBar.style.display = 'block';
+
+        // Art
+        if (track.cover) { npCover.src = track.cover; npArtWrap.classList.add('has-art'); }
+        else { npArtWrap.classList.remove('has-art'); }
+        npArtWrap.classList.remove('has-video');
+
+        // Video toggle
+        const canVideo = track.has_video || track.kind === 'video' || track.kind === 'podcast';
+        npVideoToggle.style.display = canVideo ? 'inline-block' : 'none';
+        if (track.kind === 'video' && canVideo) videoMode = true;
+        else if (track.kind === 'track') videoMode = false;
+        updateVideoUI();
+
         npPlayPause.textContent = '⏳';
         npProgressFill.style.width = '0%';
         npCurrent.textContent = '0:00';
         npDuration.textContent = '0:00';
+        highlight();
 
-        highlightActive();
-
-        // Get stream URL
         fetch('/api/stream', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source_url: track.source_url,
-                preview_url: track.preview_url || '',
-            }),
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ source_url: track.source_url, preview_url: track.preview_url||'', want_video: videoMode && canVideo }),
         })
         .then(r => r.json())
         .then(data => {
             if (data.success && data.stream_url) {
-                npAudio.src = data.stream_url;
-                npAudio.play().then(() => {
-                    isPlaying = true;
-                    npPlayPause.textContent = '⏸';
-                }).catch(e => {
-                    npPlayPause.textContent = '▶';
-                    console.warn('Playback failed:', e);
-                });
-            } else {
-                npPlayPause.textContent = '✕';
-                npTitle.textContent = track.title + ' — ' + (data.error || 'Stream unavailable');
-            }
+                const m = activeMedia();
+                m.src = data.stream_url;
+                m.play().then(() => { isPlaying = true; npPlayPause.textContent = '⏸'; })
+                    .catch(() => { npPlayPause.textContent = '▶'; });
+            } else { npPlayPause.textContent = '✕'; npTitle.textContent = track.title + ' — ' + (data.error||'Unavailable'); }
         })
         .catch(() => { npPlayPause.textContent = '✕'; });
     }
 
-    // --- Audio events ---
-    npAudio.addEventListener('timeupdate', () => {
-        if (npAudio.duration && isFinite(npAudio.duration)) {
-            const pct = (npAudio.currentTime / npAudio.duration) * 100;
-            npProgressFill.style.width = pct + '%';
-            npCurrent.textContent = formatDuration(Math.floor(npAudio.currentTime));
-            npDuration.textContent = formatDuration(Math.floor(npAudio.duration));
+    function updateVideoUI() {
+        if (videoMode) {
+            npVideo.style.display = 'block';
+            npArtWrap.classList.add('has-video');
+            npVideo.volume = parseFloat(npVolume.value);
+            npVideoToggle.classList.add('active');
+        } else {
+            npVideo.style.display = 'none';
+            npArtWrap.classList.remove('has-video');
+            npVideoToggle.classList.remove('active');
         }
-    });
+    }
 
-    npAudio.addEventListener('ended', () => {
-        if (repeatOn) {
-            npAudio.currentTime = 0;
-            npAudio.play();
-            return;
-        }
-        playNext();
-    });
+    // Media events
+    function bindMedia(el) {
+        el.addEventListener('timeupdate', () => {
+            if (el.duration && isFinite(el.duration)) {
+                npProgressFill.style.width = (el.currentTime/el.duration*100)+'%';
+                npCurrent.textContent = fmtDur(Math.floor(el.currentTime));
+                npDuration.textContent = fmtDur(Math.floor(el.duration));
+            }
+        });
+        el.addEventListener('ended', () => { if (repeatOn) { el.currentTime=0; el.play(); return; } playNext(); });
+        el.addEventListener('pause', () => { isPlaying=false; npPlayPause.textContent='▶'; });
+        el.addEventListener('play', () => { isPlaying=true; npPlayPause.textContent='⏸'; });
+    }
+    bindMedia(npAudio); bindMedia(npVideo);
 
-    npAudio.addEventListener('pause', () => {
-        isPlaying = false;
-        npPlayPause.textContent = '▶';
+    // Controls
+    npPlayPause.addEventListener('click', () => { const m=activeMedia(); if(!m.src)return; isPlaying?m.pause():m.play(); });
+    document.getElementById('np-progress-bar').addEventListener('click', e => {
+        const m=activeMedia(); if(!m.duration||!isFinite(m.duration))return;
+        const r=e.currentTarget.getBoundingClientRect();
+        m.currentTime=((e.clientX-r.left)/r.width)*m.duration;
     });
-
-    npAudio.addEventListener('play', () => {
-        isPlaying = true;
-        npPlayPause.textContent = '⏸';
-    });
-
-    // --- Controls ---
-    npPlayPause.addEventListener('click', () => {
-        if (!npAudio.src) return;
-        isPlaying ? npAudio.pause() : npAudio.play();
-    });
-
-    // Seek
-    document.getElementById('np-progress-bar').addEventListener('click', (e) => {
-        if (!npAudio.duration || !isFinite(npAudio.duration)) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        npAudio.currentTime = ((e.clientX - rect.left) / rect.width) * npAudio.duration;
-    });
-
-    // Previous
     npPrev.addEventListener('click', () => {
-        if (trackQueue.length === 0) return;
-        // If >3s into track, restart it; otherwise go to previous
-        if (npAudio.currentTime > 3) {
-            npAudio.currentTime = 0;
-            return;
-        }
-        if (shuffleOn) {
-            playRandom();
-            return;
-        }
-        currentTrackIndex = currentTrackIndex <= 0 ? trackQueue.length - 1 : currentTrackIndex - 1;
-        const t = trackQueue[currentTrackIndex];
-        playTrack({ id: t.id, source_url: t.source_url, preview_url: t.preview_url, title: t.title, artist: t.artist, cover: t.cover });
+        if (!trackQueue.length) return;
+        const m=activeMedia(); if(m.currentTime>3){m.currentTime=0;return;}
+        if(shuffleOn){playRandom();return;}
+        currentIdx=currentIdx<=0?trackQueue.length-1:currentIdx-1;
+        playTrack(trackQueue[currentIdx]);
     });
-
-    // Next
     npNext.addEventListener('click', playNext);
-
     function playNext() {
-        if (trackQueue.length === 0) return;
-        if (shuffleOn) {
-            playRandom();
-            return;
-        }
-        currentTrackIndex = (currentTrackIndex + 1) % trackQueue.length;
-        const t = trackQueue[currentTrackIndex];
-        playTrack({ id: t.id, source_url: t.source_url, preview_url: t.preview_url, title: t.title, artist: t.artist, cover: t.cover });
+        if(!trackQueue.length)return; if(shuffleOn){playRandom();return;}
+        currentIdx=(currentIdx+1)%trackQueue.length;
+        playTrack(trackQueue[currentIdx]);
     }
-
     function playRandom() {
-        if (trackQueue.length <= 1) { playNext(); return; }
-        let idx;
-        do { idx = Math.floor(Math.random() * trackQueue.length); } while (idx === currentTrackIndex);
-        currentTrackIndex = idx;
-        const t = trackQueue[currentTrackIndex];
-        playTrack({ id: t.id, source_url: t.source_url, preview_url: t.preview_url, title: t.title, artist: t.artist, cover: t.cover });
+        if(trackQueue.length<=1){playNext();return;}
+        let i; do{i=Math.floor(Math.random()*trackQueue.length)}while(i===currentIdx);
+        currentIdx=i; playTrack(trackQueue[currentIdx]);
     }
+    npShuffle.addEventListener('click', () => { shuffleOn=!shuffleOn; npShuffle.classList.toggle('active',shuffleOn); });
+    npRepeat.addEventListener('click', () => { repeatOn=!repeatOn; npRepeat.classList.toggle('active',repeatOn); });
 
-    // Shuffle
-    npShuffle.addEventListener('click', () => {
-        shuffleOn = !shuffleOn;
-        npShuffle.classList.toggle('np-btn-active', shuffleOn);
-    });
-
-    // Repeat
-    npRepeat.addEventListener('click', () => {
-        repeatOn = !repeatOn;
-        npRepeat.classList.toggle('np-btn-active', repeatOn);
+    // Video toggle
+    npVideoToggle.addEventListener('click', () => {
+        if(!currentTrack)return;
+        const wasPlaying=isPlaying, wasTime=activeMedia().currentTime||0;
+        videoMode=!videoMode;
+        npAudio.pause();npAudio.src=''; npVideo.pause();npVideo.src='';
+        updateVideoUI();
+        const canVideo=currentTrack.has_video||currentTrack.kind==='video'||currentTrack.kind==='podcast';
+        fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,preview_url:currentTrack.preview_url||'',want_video:videoMode&&canVideo})})
+        .then(r=>r.json()).then(data=>{
+            if(data.success&&data.stream_url){const m=activeMedia();m.src=data.stream_url;m.currentTime=wasTime;if(wasPlaying)m.play();}
+        }).catch(()=>{});
     });
 
     // Volume
-    npVolume.addEventListener('input', () => {
-        npAudio.volume = parseFloat(npVolume.value);
-        updateVolIcon();
-    });
-
+    npVolume.addEventListener('input', () => { const v=parseFloat(npVolume.value); npAudio.volume=v; npVideo.volume=v; updateVolIcon(); });
     npVolIcon.addEventListener('click', () => {
-        if (npAudio.volume > 0) {
-            npAudio.dataset.prevVol = npAudio.volume;
-            npAudio.volume = 0;
-            npVolume.value = 0;
-        } else {
-            npAudio.volume = parseFloat(npAudio.dataset.prevVol || 1);
-            npVolume.value = npAudio.volume;
-        }
+        const m=activeMedia();
+        if(m.volume>0){npAudio.dataset.pv=m.volume;npAudio.volume=0;npVideo.volume=0;npVolume.value=0;}
+        else{const p=parseFloat(npAudio.dataset.pv||1);npAudio.volume=p;npVideo.volume=p;npVolume.value=p;}
         updateVolIcon();
     });
+    function updateVolIcon() { const v=activeMedia().volume; npVolIcon.textContent=v===0?'🔇':v<0.5?'🔉':'🔊'; }
 
-    function updateVolIcon() {
-        const v = npAudio.volume;
-        npVolIcon.textContent = v === 0 ? '🔇' : v < 0.5 ? '🔉' : '🔊';
+    // Download from player
+    npDownload.addEventListener('click', () => { if(currentTrack)downloadTrack(currentTrack.source_url,currentTrack.title,currentTrack.artist); });
+
+    function downloadTrack(src,title,artist) {
+        if(!src)return;
+        fetch('/api/download-track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:src,title:title||'Unknown',artist:artist||''})})
+        .then(r=>r.json()).then(d=>{if(d.job_id){pollJob(d.job_id);document.querySelector('.nav-tab[data-page="downloader"]').click();}}).catch(()=>{});
     }
-
-    // Close
-    npClose.addEventListener('click', () => {
-        npAudio.pause();
-        npAudio.src = '';
-        npBar.style.display = 'none';
-        isPlaying = false;
-        currentTrack = null;
-        currentTrackIndex = -1;
-        highlightActive();
-    });
-
-    // Download from player bar
-    npDownload.addEventListener('click', () => {
-        if (currentTrack) downloadTrack(currentTrack.source_url, currentTrack.title, currentTrack.artist);
-    });
-
-    // --- Download Track ---
-    function downloadTrack(sourceUrl, title, artist) {
-        if (!sourceUrl) return;
-        fetch('/api/download-track', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_url: sourceUrl, title: title || 'Unknown', artist: artist || '' }),
-        })
-        .then(r => r.json())
-        .then(data => { if (data.job_id) pollJob(data.job_id); })
-        .catch(e => console.error('Download failed:', e));
-    }
-
-    // --- Event Listeners ---
-    btnSearch.addEventListener('click', () => doSearch(searchInput.value, 0));
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') doSearch(searchInput.value, 0);
-    });
-    btnLoadMore.addEventListener('click', () => doSearch(currentQuery, currentPage + 1));
 })();

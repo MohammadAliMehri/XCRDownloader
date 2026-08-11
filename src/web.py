@@ -212,10 +212,11 @@ def create_app(output_dir="downloads"):
 
     @app.route("/api/stream", methods=["POST"])
     def api_stream():
-        """Get a playable stream URL for a track."""
+        """Get a playable stream URL for a track/video/podcast."""
         data = request.get_json(force=True)
         source_url = (data.get("source_url") or "").strip()
         preview_url = (data.get("preview_url") or "").strip()
+        want_video = bool(data.get("want_video", False))
         if not source_url and not preview_url:
             return jsonify({"error": "No URL provided"}), 400
 
@@ -227,7 +228,7 @@ def create_app(output_dir="downloads"):
                 "source": "deezer",
             })
 
-        result = get_stream_url(source_url)
+        result = get_stream_url(source_url, want_video=want_video)
         return jsonify(result)
 
     @app.route("/api/download-track", methods=["POST"])
