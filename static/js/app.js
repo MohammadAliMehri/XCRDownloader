@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fetch('/api/stream', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ source_url: track.source_url, preview_url: track.preview_url||'', want_video: videoMode && canVideo }),
+            body: JSON.stringify({ source_url: track.source_url, preview_url: track.preview_url||'', want_video: videoMode && canVideo, title: track.title||'', artist: track.artist||'', source: track.source||'' }),
         })
         .then(r => r.json())
         .then(data => {
@@ -378,6 +378,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 m.src = data.stream_url;
                 m.play().then(() => { isPlaying = true; npPlayPause.textContent = '⏸'; })
                     .catch(() => { npPlayPause.textContent = '▶'; });
+                // Show note if fallback
+                if (data.fallback) npArtist.textContent = track.artist + ' (via YouTube)';
+                else if (data.preview_only) npArtist.textContent = track.artist + ' — 30s preview';
+                else npArtist.textContent = track.artist || '';
             } else { npPlayPause.textContent = '✕'; npTitle.textContent = track.title + ' — ' + (data.error||'Unavailable'); }
         })
         .catch(() => { npPlayPause.textContent = '✕'; });
@@ -447,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
         npAudio.pause();npAudio.src=''; npVideo.pause();npVideo.src='';
         updateVideoUI();
         const canVideo=currentTrack.has_video||currentTrack.kind==='video'||currentTrack.kind==='podcast';
-        fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,preview_url:currentTrack.preview_url||'',want_video:videoMode&&canVideo})})
+        fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,preview_url:currentTrack.preview_url||'',want_video:videoMode&&canVideo,title:currentTrack.title||'',artist:currentTrack.artist||'',source:currentTrack.source||''})})
         .then(r=>r.json()).then(data=>{
             if(data.success&&data.stream_url){const m=activeMedia();m.src=data.stream_url;m.currentTime=wasTime;if(wasPlaying)m.play();}
         }).catch(()=>{});

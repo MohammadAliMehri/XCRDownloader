@@ -412,39 +412,118 @@ def search_music(query: str, page: int = 0) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Stream extraction — with YouTube client rotation
+# Stream extraction — with YouTube client rotation + Deezer full-song fallback
 # ---------------------------------------------------------------------------
 
-def get_stream_url(source_url: str, want_video: bool = False) -> dict:
+# YouTube-specific errors that mean "skip this video, try another"
+_YT_SKIP_ERRORS = (
+    "sign in to confirm your age",
+    "video may be inappropriate",
+    "captcha",
+    "this video is not available",
+    "private video",
+    "this live event",
+    "members-only",
+)
+
+
+def _yt_find_alternative(title: str, artist: str) -> dict | None:
+    """Search YouTube for the same track by title+artist and extract its stream.
+
+    Used when a Deezer track needs full playback (not 30s preview), or when
+    the original YouTube video is age-restricted / captcha-blocked.
+    """
+    query = f"{artist} - {title}" if artist else title
+    try:
+        opts = {
+            "quiet": True, "no_warnings": True, "skip_download": True,
+            "extract_flat": "in_playlist", "default_search": "ytsearch",
+            "no_color": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            search_info = ydl.extract_info(f"ytsearch3:{query}", download=False)
+        entries = (search_info or {}).get("entries") or []
+        # Filter out entries that are likely age-restricted or unavailable
+        candidates = [e for e in entries if e and e.get("id")]
+        for entry in candidates[:3]:
+            url = entry.get("url") or entry.get("webpage_url", "")
+            if not url:
+                continue
+            info = _yt_extract_info(url, extra_opts={"format": "bestaudio/best"})
+            if info is None:
+                continue
+            stream_url = info.get("url")
+            if not stream_url and info.get("formats"):
+                audio = [f for f in info["formats"]
+                         if f.get("acodec") != "none" and f.get("url")]
+                if audio:
+                    stream_url = audio[-1]["url"]
+            if stream_url:
+                return {
+                    "success": True,
+                    "stream_url": stream_url,
+                    "title": info.get("title", title),
+                    "duration": info.get("duration"),
+                    "source": "youtube",
+                    "fallback": True,  # indicates this came from a cross-source fallback
+                }
+    except Exception:
+        pass
+    return None
+
+
+def get_stream_url(source_url: str, want_video: bool = False,
+                   title: str = "", artist: str = "") -> dict:
     """Get a playable stream URL for a track/video/podcast.
 
-    For Deezer: returns the 30s preview MP3 directly.
-    For YouTube: extracts stream via yt-dlp with client rotation.
-        - want_video=False → bestaudio
-        - want_video=True  → best video+audio muxed format
-    For SoundCloud: extracts bestaudio via yt-dlp.
+    Deezer → tries YouTube full-song first, falls back to 30s preview.
+    YouTube → client rotation; if age-restricted, tries alternate videos.
+    SoundCloud → direct extraction.
     """
     if not source_url:
         return {"success": False, "error": "No source URL provided"}
 
-    # Deezer preview — direct MP3
+    # --- Deezer: full song via YouTube, 30s preview as fallback ---
     if "deezer.com" in source_url:
-        return {"success": True, "stream_url": source_url, "source": "deezer"}
+        # Try to find the full song on YouTube
+        if title:
+            yt_result = _yt_find_alternative(title, artist)
+            if yt_result:
+                return yt_result
+        # Fall back to Deezer's 30s preview
+        return {
+            "success": True,
+            "stream_url": source_url,
+            "source": "deezer",
+            "preview_only": True,
+            "note": "30s preview — full version unavailable",
+        }
 
-    # YouTube — with client rotation
+    # --- YouTube: client rotation with age-restriction handling ---
     if "youtube.com" in source_url or "youtu.be" in source_url:
-        if want_video:
-            fmt = "best[height<=720]/best"
-        else:
-            fmt = "bestaudio/best"
+        fmt = "best[height<=720]/best" if want_video else "bestaudio/best"
         info = _yt_extract_info(source_url, extra_opts={"format": fmt})
+
         if info is None:
-            return {"success": False, "error": "YouTube extraction failed (all clients)"}
+            # Could be age-restricted or captcha — try alternate videos
+            if title:
+                alt = _yt_find_alternative(title, artist)
+                if alt:
+                    return alt
+            return {"success": False, "error": "Video unavailable (age-restricted or blocked by YouTube)"}
+
+        # Check if extraction succeeded but returned an error marker
+        raw_error = (info.get("error") or "").lower()
+        if any(marker in raw_error for marker in _YT_SKIP_ERRORS):
+            if title:
+                alt = _yt_find_alternative(title, artist)
+                if alt:
+                    return alt
+            return {"success": False, "error": "Video is age-restricted or requires sign-in"}
 
         stream_url = info.get("url")
         if not stream_url and info.get("formats"):
             if want_video:
-                # Pick best muxed format (has both audio and video)
                 muxed = [f for f in info["formats"]
                          if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("url")]
                 if muxed:
@@ -464,16 +543,18 @@ def get_stream_url(source_url: str, want_video: bool = False) -> dict:
                 "source": "youtube",
                 "has_video": want_video or bool(info.get("vcodec")),
             }
-        return {"success": False, "error": "No stream found in YouTube response"}
 
-    # SoundCloud — simple extraction
+        # Last resort: try alternate
+        if title:
+            alt = _yt_find_alternative(title, artist)
+            if alt:
+                return alt
+        return {"success": False, "error": "No stream found"}
+
+    # --- SoundCloud ---
     opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "format": "bestaudio/best",
-        "no_color": True,
-        "nocheckcertificate": True,
+        "quiet": True, "no_warnings": True, "skip_download": True,
+        "format": "bestaudio/best", "no_color": True, "nocheckcertificate": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -488,10 +569,8 @@ def get_stream_url(source_url: str, want_video: bool = False) -> dict:
                     stream_url = audio[-1]["url"]
             if stream_url:
                 return {
-                    "success": True,
-                    "stream_url": stream_url,
-                    "title": info.get("title", ""),
-                    "duration": info.get("duration"),
+                    "success": True, "stream_url": stream_url,
+                    "title": info.get("title", ""), "duration": info.get("duration"),
                     "source": "soundcloud",
                 }
             return {"success": False, "error": "No audio stream found"}

@@ -217,18 +217,26 @@ def create_app(output_dir="downloads"):
         source_url = (data.get("source_url") or "").strip()
         preview_url = (data.get("preview_url") or "").strip()
         want_video = bool(data.get("want_video", False))
+        title = (data.get("title") or "").strip()
+        artist = (data.get("artist") or "").strip()
         if not source_url and not preview_url:
             return jsonify({"error": "No URL provided"}), 400
 
-        # If we already have a preview_url (Deezer), return it directly
-        if preview_url:
+        # Deezer preview_url: try full song via YouTube first, then preview
+        if preview_url and "deezer" in (data.get("source") or ""):
+            result = get_stream_url(source_url, want_video=want_video, title=title, artist=artist)
+            if result.get("success"):
+                return jsonify(result)
+
+        if preview_url and not source_url:
             return jsonify({
                 "success": True,
                 "stream_url": preview_url,
                 "source": "deezer",
+                "preview_only": True,
             })
 
-        result = get_stream_url(source_url, want_video=want_video)
+        result = get_stream_url(source_url, want_video=want_video, title=title, artist=artist)
         return jsonify(result)
 
     @app.route("/api/download-track", methods=["POST"])
