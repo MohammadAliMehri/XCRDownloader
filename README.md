@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.3.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.4.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -128,22 +128,32 @@ No configuration needed — it just works. To update an existing install:
 pip install -r requirements.txt   # pulls yt-dlp >= 2026.7.4 + curl_cffi
 ```
 
-## 🎵 Music Search & Player (v1.3.0)
+## 🎵 Player — Music, Videos & Podcasts (v1.4.0)
 
-Search for music across **3 free providers** in parallel — no API keys needed:
+A dedicated **Player tab** for searching, browsing, and playing content from 3 free providers:
 
-| Provider | What it searches | Preview |
-|----------|-----------------|---------|
-| 🎶 Deezer | Tracks, albums, artists | 30s MP3 preview (instant) |
-| ▶️ YouTube | Videos/tracks | Full playback via yt-dlp stream |
-| 🔊 SoundCloud | Tracks | Full playback via yt-dlp stream |
+| Provider | Searches | Playback |
+|----------|----------|----------|
+| 🎶 Deezer | Tracks, albums, artists | 30s preview (instant) |
+| ▶️ YouTube | Videos, music, podcasts | Full playback (client rotation) |
+| 🔊 SoundCloud | Tracks, podcasts | Full playback |
 
-**Web UI:** Type a query in the "Search Music" section → click any result's ▶ button to play → use the Now Playing bar (seek, play/pause, download). Click ⬇️ to download as MP3.
+**Features:**
+- 🎬 **Video playback** — YouTube videos play in a floating video player
+- 🎙️ **Podcast support** — auto-detected by duration/keywords, full playback
+- 📋 **Queue** — auto-advance, prev/next, shuffle, repeat
+- 🔊 **Volume control** — slider + mute toggle
+- 🏷️ **Category filters** — All / Music / Videos / Podcasts / Albums / Artists
+- ▶️ **Active track** — highlighted in results and queue
+- ⬇️ **Download** — any track/video from the player
+
+**Web UI:** Click the "Player" tab in the top nav, search, and play.
 
 **CLI:**
 ```bash
 python cli.py --search "Eminem Lose Yourself"
-python cli.py --search "Adele Hello" --json
+python cli.py --search "Joe Rogan podcast"
+python cli.py --search "cooking tutorial"
 ```
 
 **API:**
