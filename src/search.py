@@ -182,18 +182,27 @@ def _relevance(result: dict, query: str) -> float:
     return score * weights.get(result.get("source"), .8)
 
 
-def search_music(query: str, page: int = 0) -> dict:
-    """Search YouTube, YouTube Music and SoundCloud in parallel."""
+def search_music(query: str, page: int = 0, provider: str = "all") -> dict:
+    """Search one selected provider or all providers in parallel."""
     if not query.strip():
-        return {"results": [], "page": 0, "has_more": False}
-    providers = [
-        lambda q, p: _search_youtube(q, p, music=False),
-        lambda q, p: _search_youtube(q, p, music=True),
-        _search_soundcloud,
-    ]
+        return {"results": [], "page": 0, "has_more": False, "provider": provider}
+    provider = (provider or "all").lower()
+    provider_map = {
+        "youtube": [lambda q, p: _search_youtube(q, p, music=False)],
+        "youtube_music": [lambda q, p: _search_youtube(q, p, music=True)],
+        "soundcloud": [_search_soundcloud],
+        "all": [
+            lambda q, p: _search_youtube(q, p, music=False),
+            lambda q, p: _search_youtube(q, p, music=True),
+            _search_soundcloud,
+        ],
+    }
+    providers = provider_map.get(provider, provider_map["all"])
+
     results = []
+    selected_provider = provider
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(provider, query, page) for provider in providers]
+        futures = [pool.submit(search_provider, query, page) for search_provider in providers]
         for future in as_completed(futures):
             try: results.extend(future.result())
             except Exception: pass
@@ -203,7 +212,7 @@ def search_music(query: str, page: int = 0) -> dict:
         if key not in seen:
             seen.add(key); unique.append(result)
     unique.sort(key=lambda result: _relevance(result, query), reverse=True)
-    return {"results": unique, "page": page, "has_more": len(unique) >= 20}
+    return {"results": unique, "page": page, "has_more": len(unique) >= 20, "provider": selected_provider}
 
 
 # ---- Full-length mixed-provider playback ---------------------------------
@@ -230,15 +239,16 @@ def _sc_find_alternative(title: str, artist: str) -> dict | None:
 def _select_format(info: dict, want_video: bool) -> str | None:
     """Select a browser-playable format; prefer muxed MP4 for video."""
     direct = info.get("url")
-    if direct: return direct
+    if direct and (not want_video or info.get("vcodec") != "none"):
+        return direct
     formats = info.get("formats") or []
     if want_video:
-        candidates = [f for f in formats if f.get("url") and f.get("vcodec") != "none" and f.get("acodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "m4v_dash")]
+        candidates = [f for f in formats if f.get("url") and f.get("protocol") not in {"mhtml", "http_dash_segments"} and f.get("vcodec") != "none" and f.get("acodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "m4v_dash")]
         if not candidates:
-            candidates = [f for f in formats if f.get("url") and f.get("vcodec") != "none" and f.get("acodec") != "none"]
+            candidates = [f for f in formats if f.get("url") and f.get("protocol") not in {"mhtml", "http_dash_segments"} and f.get("vcodec") != "none" and f.get("acodec") != "none"]
     else:
-        candidates = [f for f in formats if f.get("url") and f.get("acodec") != "none"]
-    candidates.sort(key=lambda f: (f.get("height") or 0, f.get("abr") or 0))
+        candidates = [f for f in formats if f.get("url") and f.get("protocol") not in {"mhtml", "http_dash_segments"} and f.get("acodec") != "none"]
+    candidates.sort(key=lambda f: (f.get("ext") != "mp4", f.get("height") or 0, f.get("abr") or 0))
     return candidates[-1].get("url") if candidates else None
 
 
@@ -248,17 +258,25 @@ def get_stream_url(source_url: str, want_video: bool = False, title: str = "", a
         return {"success": False, "error": "No URL provided"}
     is_youtube = "youtube.com" in source_url or "youtu.be" in source_url
     if is_youtube:
-        fmt = "best[ext=mp4][height<=720]/best[height<=720]/best" if want_video else "bestaudio/best"
-        info = _yt_extract_info(source_url, {"format": fmt})
+        # Ask yt-dlp for a single browser-playable file.  DASH video/audio
+        # pairs cannot be muxed by an HTML5 element, so never request them.
+        fmt = ("best[height<=720][vcodec!=none][acodec!=none]/"
+               "best[height<=720][vcodec!=none][acodec!=none]/best") if want_video else "bestaudio[acodec!=none]/best"
+        info = _yt_extract_info(source_url, {
+            "format": fmt,
+            "check_formats": False,
+            "source_address": "0.0.0.0",
+            "http_headers": {"Referer": "https://www.youtube.com/", "Origin": "https://www.youtube.com"},
+        })
         stream = _select_format(info or {}, want_video) if info else None
         if stream:
             return {"success": True, "stream_url": stream, "source": "youtube", "has_video": want_video, "title": info.get("title", title), "duration": info.get("duration")}
-        if title:
+        if title and not want_video:
             alt = _sc_find_alternative(title, artist) if not want_video else None
             if alt: return alt
-        embed = _youtube_embed_result(source_url, "Direct extraction blocked; using official YouTube playback.")
+        embed = _youtube_embed_result(source_url, "Direct YouTube stream unavailable; using the official YouTube player.") if want_video else None
         if embed: return embed
-        return {"success": False, "error": "YouTube playback is unavailable for this item."}
+        return {"success": False, "error": "YouTube stream is unavailable. Try another provider or use the official player."}
     # SoundCloud and YouTube Music URLs are handled by yt-dlp. YouTube Music
     # URLs resolve through the YouTube extractor but remain labeled as music.
     if "music.youtube.com" in source_url:

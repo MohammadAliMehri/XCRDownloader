@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XCRDownloader</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>\">
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
 </head>
 <body>
     <!-- ===================== TOP NAV ===================== -->
@@ -126,6 +126,12 @@
                 <!-- Search -->
                 <div class="player-search">
                     <input type="text" id="music-search-input" class="input-main" placeholder="Search music, videos, podcasts, or YouTube Music..." autocomplete="off">
+                    <select id="player-provider" class="select-main" title="Search provider">
+                        <option value="all">All providers</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="youtube_music">YouTube Music</option>
+                        <option value="soundcloud">SoundCloud</option>
+                    </select>
                 </div>
                 <!-- Category Pills -->
                 <div class="category-pills" id="category-tabs" style="display:none;">

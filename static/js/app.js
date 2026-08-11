@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchLoadMore = document.getElementById('search-load-more');
     const categoryTabs = document.getElementById('category-tabs');
     const btnLoadMore = document.getElementById('btn-load-more');
+    const playerProvider = document.getElementById('player-provider');
 
     // Player elements
     const npCover = document.getElementById('np-cover');
@@ -264,6 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Search
     searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(searchInput.value, 0); });
+    playerProvider.addEventListener('change', () => {
+        if (searchInput.value.trim()) doSearch(searchInput.value, 0);
+    });
     btnLoadMore.addEventListener('click', () => doSearch(currentQuery, currentPage + 1));
 
     function doSearch(query, page) {
@@ -274,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             searchStatus.innerHTML = '<span class="loading">⏳ Searching YouTube, YouTube Music & SoundCloud...</span>';
             categoryTabs.style.display = 'none';
         }
-        fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`)
+        fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}&provider=${encodeURIComponent(playerProvider.value)}`)
             .then(r => r.json())
             .then(data => {
                 searchStatus.innerHTML = '';

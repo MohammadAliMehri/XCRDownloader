@@ -201,11 +201,12 @@ def create_app(output_dir="downloads"):
     def api_search():
         """Search YouTube, YouTube Music, and SoundCloud."""
         q = request.args.get("q", "").strip()
+        provider = request.args.get("provider", "all").strip().lower()
         page = int(request.args.get("page", 0))
         if not q:
             return jsonify({"error": "Empty search query"}), 400
         try:
-            result = search_music(q, page)
+            result = search_music(q, page, provider=provider)
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)[:200]}), 500
