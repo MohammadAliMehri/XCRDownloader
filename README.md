@@ -134,9 +134,9 @@ A dedicated **Player tab** for searching, browsing, and playing content from 3 f
 
 | Provider | Searches | Playback |
 |----------|----------|----------|
-| 🎶 Deezer | Tracks, albums, artists | 30s preview (instant) |
-| ▶️ YouTube | Videos, music, podcasts | Full playback (client rotation) |
-| 🔊 SoundCloud | Tracks, podcasts | Full playback |
+| 🎶 Deezer | Tracks, albums, artists | Catalog metadata; full playback requires account auth |
+| ▶️ YouTube | Videos, music, podcasts | Client rotation + official embed fallback |
+| 🔊 SoundCloud | Tracks, podcasts | Full playback fallback |
 
 **Features:**
 - 🎬 **Video playback** — YouTube videos play in a floating video player
@@ -148,6 +148,8 @@ A dedicated **Player tab** for searching, browsing, and playing content from 3 f
 - ⬇️ **Download** — any track/video from the player
 
 **Web UI:** Click the "Player" tab in the top nav, search, and play.
+
+**Important provider limitations:** Deezer's public API exposes 30-second previews and catalog metadata. Full Deezer playback requires Deezer's authenticated playback/SDK flow and an eligible account; this app does not bypass that restriction. For mixed full-length playback, Deezer results try a matching SoundCloud track first, then YouTube, and clearly report when no full source is available. YouTube age/captcha failures try alternate results and then use the official YouTube embed player when possible.
 
 **CLI:**
 ```bash

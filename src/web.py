@@ -219,11 +219,12 @@ def create_app(output_dir="downloads"):
         want_video = bool(data.get("want_video", False))
         title = (data.get("title") or "").strip()
         artist = (data.get("artist") or "").strip()
+        source = (data.get("source") or "").strip().lower()
         if not source_url and not preview_url:
             return jsonify({"error": "No URL provided"}), 400
 
         # Deezer preview_url: try full song via YouTube first, then preview
-        if preview_url and "deezer" in (data.get("source") or ""):
+        if preview_url and source == "deezer":
             result = get_stream_url(source_url, want_video=want_video, title=title, artist=artist)
             if result.get("success"):
                 return jsonify(result)

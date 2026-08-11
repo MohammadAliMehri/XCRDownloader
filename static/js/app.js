@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Player elements
     const npCover = document.getElementById('np-cover');
     const npVideo = document.getElementById('np-video');
+    const npEmbed = document.getElementById('np-embed');
     const npAudio = document.getElementById('np-audio');
     const npTitle = document.getElementById('np-title');
     const npArtist = document.getElementById('np-artist');
@@ -225,6 +226,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeCategory = 'all';
 
     function activeMedia() { return videoMode ? npVideo : npAudio; }
+
+    function stopAllMedia() {
+        npAudio.pause(); npAudio.src = '';
+        npVideo.pause(); npVideo.src = '';
+        npEmbed.src = 'about:blank';
+        npEmbed.style.display = 'none';
+    }
 
     // Category filter
     categoryTabs.addEventListener('click', e => {
@@ -343,8 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Play
     function playTrack(track) {
-        npAudio.pause(); npAudio.src = '';
-        npVideo.pause(); npVideo.src = '';
+        stopAllMedia();
         currentTrack = track;
         npTitle.textContent = track.title || 'Unknown';
         npArtist.textContent = track.artist || '';
@@ -373,7 +380,17 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(r => r.json())
         .then(data => {
-            if (data.success && data.stream_url) {
+            if (data.success && data.embed_url) {
+                videoMode = true;
+                npEmbed.src = data.embed_url;
+                npEmbed.style.display = 'block';
+                npArtWrap.classList.add('has-video');
+                npVideoToggle.style.display = 'inline-block';
+                npVideoToggle.classList.add('active');
+                isPlaying = true;
+                npPlayPause.textContent = '⏸';
+                npArtist.textContent = track.artist + ' (official YouTube player)';
+            } else if (data.success && data.stream_url) {
                 const m = activeMedia();
                 m.src = data.stream_url;
                 m.play().then(() => { isPlaying = true; npPlayPause.textContent = '⏸'; })
@@ -382,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.fallback) npArtist.textContent = track.artist + ' (via YouTube)';
                 else if (data.preview_only) npArtist.textContent = track.artist + ' — 30s preview';
                 else npArtist.textContent = track.artist || '';
-            } else { npPlayPause.textContent = '✕'; npTitle.textContent = track.title + ' — ' + (data.error||'Unavailable'); }
+            } else { npPlayPause.textContent = '✕'; npTitle.textContent = track.title; npArtist.textContent = data.error || 'Unavailable'; }
         })
         .catch(() => { npPlayPause.textContent = '✕'; });
     }
@@ -395,6 +412,8 @@ document.addEventListener('DOMContentLoaded', () => {
             npVideoToggle.classList.add('active');
         } else {
             npVideo.style.display = 'none';
+            npEmbed.style.display = 'none';
+            npEmbed.src = 'about:blank';
             npArtWrap.classList.remove('has-video');
             npVideoToggle.classList.remove('active');
         }
@@ -448,12 +467,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!currentTrack)return;
         const wasPlaying=isPlaying, wasTime=activeMedia().currentTime||0;
         videoMode=!videoMode;
-        npAudio.pause();npAudio.src=''; npVideo.pause();npVideo.src='';
+        stopAllMedia();
         updateVideoUI();
         const canVideo=currentTrack.has_video||currentTrack.kind==='video'||currentTrack.kind==='podcast';
         fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,preview_url:currentTrack.preview_url||'',want_video:videoMode&&canVideo,title:currentTrack.title||'',artist:currentTrack.artist||'',source:currentTrack.source||''})})
         .then(r=>r.json()).then(data=>{
-            if(data.success&&data.stream_url){const m=activeMedia();m.src=data.stream_url;m.currentTime=wasTime;if(wasPlaying)m.play();}
+            if(data.success&&data.embed_url){
+                videoMode = true;
+                npEmbed.src = data.embed_url;
+                npEmbed.style.display = 'block';
+                npVideo.style.display = 'none';
+                npArtWrap.classList.add('has-video');
+                npVideoToggle.classList.add('active');
+                isPlaying = true;
+                npPlayPause.textContent = '⏸';
+            } else if(data.success&&data.stream_url){
+                const m=activeMedia();m.src=data.stream_url;m.currentTime=wasTime;if(wasPlaying)m.play();
+            }
         }).catch(()=>{});
     });
 

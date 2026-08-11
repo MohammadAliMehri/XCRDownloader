@@ -19,8 +19,52 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import yt_dlp
+from urllib.parse import parse_qs, urlparse
 
 
+# ---------------------------------------------------------------------------
+# Official YouTube embed fallback
+# ---------------------------------------------------------------------------
+
+def _youtube_video_id(url: str) -> str | None:
+    """Extract a YouTube video id for the official iframe player."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if host == "youtu.be":
+        return parsed.path.strip("/").split("/")[0] or None
+    if "youtube.com" in host:
+        if parsed.path == "/watch":
+            return parse_qs(parsed.query).get("v", [None])[0]
+        parts = [p for p in parsed.path.split("/") if p]
+        if len(parts) >= 2 and parts[0] in {"shorts", "embed", "live"}:
+            return parts[1]
+    return None
+
+
+def _youtube_embed_result(url: str, want_video: bool, reason: str) -> dict | None:
+    """Return an official YouTube embed when direct extraction is blocked."""
+    video_id = _youtube_video_id(url)
+    if not video_id:
+        return None
+    # The iframe is the supported browser playback path. It may still reject
+    # age-restricted videos, but avoids expiring direct URLs and bot bypasses.
+    embed_url = (
+        f"https://www.youtube.com/embed/{video_id}"
+        "?autoplay=1&playsinline=1&controls=1&rel=0&enablejsapi=1"
+    )
+    return {
+        "success": True,
+        "embed_url": embed_url,
+        "video_id": video_id,
+        "source": "youtube",
+        "has_video": True,
+        "embed_only": True,
+        "reason": reason,
+    }
+
+
+# ---------------------------------------------------------------------------
+# YouTube client rotation — same strategy as platforms/youtube.py
 # ---------------------------------------------------------------------------
 # YouTube client rotation — same strategy as platforms/youtube.py
 # YouTube periodically blocks old player clients (403 / "No formats found").
@@ -427,7 +471,46 @@ _YT_SKIP_ERRORS = (
 )
 
 
-def _yt_find_alternative(title: str, artist: str) -> dict | None:
+def _sc_find_alternative(title: str, artist: str) -> dict | None:
+    """Search SoundCloud for a full-length fallback track."""
+    query = f"{artist} {title}".strip()
+    try:
+        opts = {
+            "quiet": True, "no_warnings": True, "skip_download": True,
+            "extract_flat": "in_playlist", "default_search": "scsearch",
+            "no_color": True, "format": "bestaudio/best",
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            result = ydl.extract_info(f"scsearch5:{query}", download=False)
+        for entry in (result or {}).get("entries") or []:
+            if not entry:
+                continue
+            url = entry.get("webpage_url") or entry.get("url")
+            if not url:
+                continue
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+            stream_url = (info or {}).get("url")
+            if not stream_url and (info or {}).get("formats"):
+                audio = [f for f in info["formats"] if f.get("acodec") != "none" and f.get("url")]
+                if audio:
+                    stream_url = audio[-1]["url"]
+            if stream_url:
+                return {
+                    "success": True,
+                    "stream_url": stream_url,
+                    "title": (info or {}).get("title", title),
+                    "duration": (info or {}).get("duration"),
+                    "source": "soundcloud",
+                    "fallback": True,
+                    "fallback_provider": "soundcloud",
+                }
+    except Exception:
+        pass
+    return None
+
+
+def _yt_find_alternative(title: str, artist: str, want_video: bool = False) -> dict | None:
     """Search YouTube for the same track by title+artist and extract its stream.
 
     Used when a Deezer track needs full playback (not 30s preview), or when
@@ -449,7 +532,7 @@ def _yt_find_alternative(title: str, artist: str) -> dict | None:
             url = entry.get("url") or entry.get("webpage_url", "")
             if not url:
                 continue
-            info = _yt_extract_info(url, extra_opts={"format": "bestaudio/best"})
+            info = _yt_extract_info(url, extra_opts={"format": "best[height<=720]/best" if want_video else "bestaudio/best"})
             if info is None:
                 continue
             stream_url = info.get("url")
@@ -465,6 +548,7 @@ def _yt_find_alternative(title: str, artist: str) -> dict | None:
                     "title": info.get("title", title),
                     "duration": info.get("duration"),
                     "source": "youtube",
+                    "has_video": want_video,
                     "fallback": True,  # indicates this came from a cross-source fallback
                 }
     except Exception:
@@ -485,18 +569,20 @@ def get_stream_url(source_url: str, want_video: bool = False,
 
     # --- Deezer: full song via YouTube, 30s preview as fallback ---
     if "deezer.com" in source_url:
-        # Try to find the full song on YouTube
+        # Prefer SoundCloud for full-length fallback, then YouTube.
         if title:
+            sc_result = _sc_find_alternative(title, artist)
+            if sc_result:
+                return sc_result
             yt_result = _yt_find_alternative(title, artist)
             if yt_result:
                 return yt_result
-        # Fall back to Deezer's 30s preview
+        # Do not silently present a 30s clip as a full player track.
         return {
-            "success": True,
-            "stream_url": source_url,
+            "success": False,
             "source": "deezer",
             "preview_only": True,
-            "note": "30s preview — full version unavailable",
+            "error": "Full Deezer playback requires Deezer authentication; no SoundCloud full version was found.",
         }
 
     # --- YouTube: client rotation with age-restriction handling ---
@@ -505,18 +591,25 @@ def get_stream_url(source_url: str, want_video: bool = False,
         info = _yt_extract_info(source_url, extra_opts={"format": fmt})
 
         if info is None:
-            # Could be age-restricted or captcha — try alternate videos
+            # Could be age-restricted or captcha — try alternate videos first,
+            # then let the official YouTube iframe handle browser playback.
             if title:
-                alt = _yt_find_alternative(title, artist)
+                alt = _yt_find_alternative(title, artist, want_video=want_video)
                 if alt:
                     return alt
+            embed = _youtube_embed_result(
+                source_url, want_video,
+                "Direct extraction was blocked; switched to official YouTube playback.",
+            )
+            if embed:
+                return embed
             return {"success": False, "error": "Video unavailable (age-restricted or blocked by YouTube)"}
 
         # Check if extraction succeeded but returned an error marker
         raw_error = (info.get("error") or "").lower()
         if any(marker in raw_error for marker in _YT_SKIP_ERRORS):
             if title:
-                alt = _yt_find_alternative(title, artist)
+                alt = _yt_find_alternative(title, artist, want_video=want_video)
                 if alt:
                     return alt
             return {"success": False, "error": "Video is age-restricted or requires sign-in"}
@@ -546,7 +639,7 @@ def get_stream_url(source_url: str, want_video: bool = False,
 
         # Last resort: try alternate
         if title:
-            alt = _yt_find_alternative(title, artist)
+            alt = _yt_find_alternative(title, artist, want_video=want_video)
             if alt:
                 return alt
         return {"success": False, "error": "No stream found"}
