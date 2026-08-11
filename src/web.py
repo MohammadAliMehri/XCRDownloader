@@ -199,7 +199,7 @@ def create_app(output_dir="downloads"):
 
     @app.route("/api/search")
     def api_search():
-        """Search music across Deezer, YouTube, SoundCloud."""
+        """Search YouTube, YouTube Music, and SoundCloud."""
         q = request.args.get("q", "").strip()
         page = int(request.args.get("page", 0))
         if not q:
@@ -215,27 +215,11 @@ def create_app(output_dir="downloads"):
         """Get a playable stream URL for a track/video/podcast."""
         data = request.get_json(force=True)
         source_url = (data.get("source_url") or "").strip()
-        preview_url = (data.get("preview_url") or "").strip()
         want_video = bool(data.get("want_video", False))
         title = (data.get("title") or "").strip()
         artist = (data.get("artist") or "").strip()
-        source = (data.get("source") or "").strip().lower()
-        if not source_url and not preview_url:
-            return jsonify({"error": "No URL provided"}), 400
-
-        # Deezer preview_url: try full song via YouTube first, then preview
-        if preview_url and source == "deezer":
-            result = get_stream_url(source_url, want_video=want_video, title=title, artist=artist)
-            if result.get("success"):
-                return jsonify(result)
-
-        if preview_url and not source_url:
-            return jsonify({
-                "success": True,
-                "stream_url": preview_url,
-                "source": "deezer",
-                "preview_only": True,
-            })
+        if not source_url:
+            return jsonify({"error": "No source URL provided"}), 400
 
         result = get_stream_url(source_url, want_video=want_video, title=title, artist=artist)
         return jsonify(result)

@@ -276,8 +276,8 @@ select:focus { border-color: var(--accent); }
 .sr-title { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-0); }
 .sr-sub { font-size: 0.73rem; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 8px; }
 .sr-sub .tag { font-weight: 600; }
-.sr-sub .tag-deezer { color: #a23de8; }
 .sr-sub .tag-youtube { color: var(--youtube); }
+.sr-sub .tag-youtube-music { color: #ff4b5c; }
 .sr-sub .tag-soundcloud { color: var(--soundcloud); }
 .sr-dl {
     background: none; border: 1px solid var(--border); border-radius: var(--r-sm);

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.4.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.5.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -10,7 +10,7 @@
 <p align="center">
   <strong>Free · Unlimited · No API Keys · No Rate Limits</strong><br>
   Download videos, music, and images from YouTube, SoundCloud, Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.<br>
-  <strong>🎵 NEW: Search & Play Music</strong> — search across Deezer, YouTube & SoundCloud, play inline, download as MP3.
+  <strong>🎵 NEW: Search & Play</strong> — search YouTube, YouTube Music & SoundCloud, play inline, download as MP3.
 </p>
 
 <p align="center">
@@ -42,8 +42,9 @@
 - 🐳 **Docker** — ready to deploy
 - ⚡ **Parallel downloads** — configurable worker threads
 - 🎧 **Audio extraction** — extract MP3 from any video
-- 🎵 **Music Search** — search across Deezer, YouTube & SoundCloud in one query, no API keys
-- ▶️ **Inline Player** — play tracks in the browser with a Spotify-like Now Playing bar
+- 🎵 **Music Search** — search across YouTube, YouTube Music & SoundCloud in one query, no API keys
+- ▶️ **Dedicated Player** — play tracks, videos, and podcasts with queue controls
+- 🛠️ **FFmpeg integration** — merge and convert downloads with browser-safe online playback
 - 📊 **Quality selection** — Best, HD (1080p), SD (480p)
 - 🛡️ **Error handling** — human-readable error messages
 
@@ -128,15 +129,17 @@ No configuration needed — it just works. To update an existing install:
 pip install -r requirements.txt   # pulls yt-dlp >= 2026.7.4 + curl_cffi
 ```
 
-## 🎵 Player — Music, Videos & Podcasts (v1.4.0)
+## 🎵 Player — YouTube, YouTube Music & SoundCloud (v1.5.0)
 
 A dedicated **Player tab** for searching, browsing, and playing content from 3 free providers:
 
+**Online playback:** The server asks yt-dlp for a fresh URL at playback time. For video, it prefers a browser-compatible muxed MP4 format; for audio, it prefers direct audio formats. FFmpeg remains responsible for downloaded-file conversion and merging. The browser does not need FFmpeg installed to play a returned URL.
+
 | Provider | Searches | Playback |
 |----------|----------|----------|
-| 🎶 Deezer | Tracks, albums, artists | Catalog metadata; full playback requires account auth |
 | ▶️ YouTube | Videos, music, podcasts | Client rotation + official embed fallback |
-| 🔊 SoundCloud | Tracks, podcasts | Full playback fallback |
+| 🎧 YouTube Music | Music tracks and albums | Fresh online audio URLs |
+| 🔊 SoundCloud | Tracks, podcasts | Full online playback |
 
 **Features:**
 - 🎬 **Video playback** — YouTube videos play in a floating video player
@@ -149,7 +152,7 @@ A dedicated **Player tab** for searching, browsing, and playing content from 3 f
 
 **Web UI:** Click the "Player" tab in the top nav, search, and play.
 
-**Important provider limitations:** Deezer's public API exposes 30-second previews and catalog metadata. Full Deezer playback requires Deezer's authenticated playback/SDK flow and an eligible account; this app does not bypass that restriction. For mixed full-length playback, Deezer results try a matching SoundCloud track first, then YouTube, and clearly report when no full source is available. YouTube age/captcha failures try alternate results and then use the official YouTube embed player when possible.
+**Playback behavior:** YouTube and YouTube Music use fresh online URLs from yt-dlp. If YouTube direct extraction is blocked by age restrictions or captcha, the Player tries an alternate result and then the official YouTube embed player. SoundCloud is the full-length fallback for music where an equivalent upload exists. FFmpeg is used for downloads and format conversion; browser playback prefers formats that already contain both audio and video because browsers cannot mux separate DASH streams.
 
 **CLI:**
 ```bash
@@ -176,8 +179,9 @@ python cli.py --web --port 9090
 Opens `http://127.0.0.1:8080` in your browser. Features:
 
 - 🔍 **Auto-preview** — paste a URL → see title, thumbnail, duration, views before downloading
-- 🎵 **Music Search** — search songs, artists, albums across Deezer, YouTube & SoundCloud
-- ▶️ **Inline Player** — click play on any search result → Now Playing bar with seek, play/pause, download
+- 🎵 **Music Search** — search songs, videos, podcasts, and YouTube Music
+- ▶️ **Dedicated Player** — queue, seek, play/pause, shuffle, repeat, volume, video mode
+- 🛠️ **FFmpeg-aware playback** — browser-safe muxed formats for online video; FFmpeg for downloads
 - 🎨 Modern dark theme
 - 📋 Single & batch download
 - 📊 Download history & stats
@@ -210,7 +214,7 @@ python cli.py -f urls.txt
 # JSON output
 python cli.py --json --info URL
 
-# Search music (Deezer + YouTube + SoundCloud)
+# Search YouTube, YouTube Music, and SoundCloud
 python cli.py --search "Eminem Lose Yourself"
 python cli.py --search "Adele Hello"
 ```
@@ -249,7 +253,7 @@ XCRDownloader/
 ├── docker-compose.yml     # Docker Compose
 ├── src/
 │   ├── engine.py          # Download engine + error humanizer
-│   ├── search.py          # Music search (Deezer + YouTube + SoundCloud)
+│   ├── search.py          # YouTube + YouTube Music + SoundCloud search/player
 │   ├── web.py             # Flask Web UI backend (+ search/stream/download-track APIs)
 │   ├── platforms/
 │   │   ├── base.py        # Base downloader (yt-dlp)

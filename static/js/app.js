@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const npPlaceholder = document.getElementById('np-art-placeholder');
     const queueList = document.getElementById('queue-list');
 
-    const SRC_TAG = { deezer:'tag-deezer', youtube:'tag-youtube', soundcloud:'tag-soundcloud' };
+    const SRC_TAG = { youtube:'tag-youtube', youtube_music:'tag-youtube-music', soundcloud:'tag-soundcloud' };
     const KIND_ICON = { track:'🎵', video:'🎬', podcast:'🎙️', album:'💿', artist:'👤' };
 
     let currentQuery = '', currentPage = 0, allResults = [], trackQueue = [];
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuery = query; currentPage = page;
         if (page === 0) {
             allResults = []; searchResults.innerHTML = '';
-            searchStatus.innerHTML = '<span class="loading">⏳ Searching Deezer, YouTube & SoundCloud...</span>';
+            searchStatus.innerHTML = '<span class="loading">⏳ Searching YouTube, YouTube Music & SoundCloud...</span>';
             categoryTabs.style.display = 'none';
         }
         fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`)
@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fetch('/api/stream', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ source_url: track.source_url, preview_url: track.preview_url||'', want_video: videoMode && canVideo, title: track.title||'', artist: track.artist||'', source: track.source||'' }),
+            body: JSON.stringify({ source_url: track.source_url, want_video: videoMode && canVideo, title: track.title||'', artist: track.artist||'', source: track.source||'' }),
         })
         .then(r => r.json())
         .then(data => {
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stopAllMedia();
         updateVideoUI();
         const canVideo=currentTrack.has_video||currentTrack.kind==='video'||currentTrack.kind==='podcast';
-        fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,preview_url:currentTrack.preview_url||'',want_video:videoMode&&canVideo,title:currentTrack.title||'',artist:currentTrack.artist||'',source:currentTrack.source||''})})
+        fetch('/api/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:currentTrack.source_url,want_video:videoMode&&canVideo,title:currentTrack.title||'',artist:currentTrack.artist||'',source:currentTrack.source||''})})
         .then(r=>r.json()).then(data=>{
             if(data.success&&data.embed_url){
                 videoMode = true;

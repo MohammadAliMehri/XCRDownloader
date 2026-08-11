@@ -57,8 +57,8 @@ Examples:
     parser.add_argument("--port", type=int, default=8080, help="Web UI port (default: 8080)")
     parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--search", action="store_true", help="Search for music (Deezer + YouTube + SoundCloud)")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.4.0")
+    parser.add_argument("--search", action="store_true", help="Search YouTube, YouTube Music, and SoundCloud")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.5.0")
 
     args = parser.parse_args()
 
@@ -164,7 +164,7 @@ Examples:
             print("\n  ❌ Provide a search query: python cli.py --search 'query'\n")
             return
         print(f"\n  🔍 Searching: \"{query}\"")
-        print(f"  📡 Sources: Deezer · YouTube · SoundCloud\n")
+        print(f"  📡 Sources: YouTube · YouTube Music · SoundCloud\n")
         try:
             result = search_music(query)
         except Exception as e:

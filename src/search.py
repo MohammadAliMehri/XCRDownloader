@@ -1,33 +1,67 @@
-"""Search engine — Deezer + YouTube + SoundCloud. Plays music, videos, podcasts.
+"""Mixed media search and online playback for YouTube, YouTube Music and SoundCloud.
 
-Fan out to multiple free providers in parallel, merge results by relevance.
-No API keys needed.
-
-Deezer's public API at api.deezer.com requires no authentication and
-provides clean metadata (title, artist, album art, 30s preview).
-YouTube search via yt-dlp `ytsearch:` gives full playback URLs.
-SoundCloud search via yt-dlp `scsearch:`.
+YouTube Music uses the same public YouTube catalog with music-specific metadata
+and URLs. SoundCloud provides full-length audio where available. Direct media
+URLs are short-lived; the client requests a fresh URL whenever playback starts.
 """
 import json
-import os
 import re
-import threading
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
-from urllib.error import URLError
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import yt_dlp
-from urllib.parse import parse_qs, urlparse
+
+_YT_CLIENT_SETS = [
+    ["android_vr", "web_safari"],
+    ["tv_downgraded", "web_safari"],
+    ["ios", "android"],
+    ["web", "mweb"],
+]
+_YT_RETRY_MARKERS = (
+    "no video formats found", "http error 403", "sign in to confirm",
+    "captcha", "player_response", "unable to extract", "unavailable", "age",
+)
+_YT_SKIP_MARKERS = ("age", "captcha", "private video", "members-only", "sign in")
 
 
-# ---------------------------------------------------------------------------
-# Official YouTube embed fallback
-# ---------------------------------------------------------------------------
+def _yt_impersonate():
+    try:
+        import curl_cffi  # noqa: F401
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+        return ImpersonateTarget.from_str("chrome")
+    except Exception:
+        return None
+
+
+def _yt_extract_info(url: str, extra_opts: dict | None = None) -> dict | None:
+    """Extract with rotating clients; returns None when YouTube blocks access."""
+    base = {
+        "quiet": True, "no_warnings": True, "skip_download": True,
+        "no_color": True, "nocheckcertificate": True, "extract_flat": False,
+    }
+    if extra_opts:
+        base.update(extra_opts)
+    impersonate = _yt_impersonate()
+    for index, clients in enumerate(_YT_CLIENT_SETS):
+        opts = dict(base)
+        opts["extractor_args"] = {"youtube": {"player_client": clients}}
+        if index == 0 and impersonate:
+            opts["impersonate"] = impersonate
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+            if info:
+                return info
+        except Exception as exc:
+            if not any(marker in str(exc).lower() for marker in _YT_RETRY_MARKERS):
+                break
+    return None
+
 
 def _youtube_video_id(url: str) -> str | None:
-    """Extract a YouTube video id for the official iframe player."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     if host == "youtu.be":
@@ -41,20 +75,13 @@ def _youtube_video_id(url: str) -> str | None:
     return None
 
 
-def _youtube_embed_result(url: str, want_video: bool, reason: str) -> dict | None:
-    """Return an official YouTube embed when direct extraction is blocked."""
+def _youtube_embed_result(url: str, reason: str) -> dict | None:
     video_id = _youtube_video_id(url)
     if not video_id:
         return None
-    # The iframe is the supported browser playback path. It may still reject
-    # age-restricted videos, but avoids expiring direct URLs and bot bypasses.
-    embed_url = (
-        f"https://www.youtube.com/embed/{video_id}"
-        "?autoplay=1&playsinline=1&controls=1&rel=0&enablejsapi=1"
-    )
     return {
         "success": True,
-        "embed_url": embed_url,
+        "embed_url": f"https://www.youtube.com/embed/{video_id}?autoplay=1&playsinline=1&controls=1&rel=0",
         "video_id": video_id,
         "source": "youtube",
         "has_video": True,
@@ -63,614 +90,195 @@ def _youtube_embed_result(url: str, want_video: bool, reason: str) -> dict | Non
     }
 
 
-# ---------------------------------------------------------------------------
-# YouTube client rotation — same strategy as platforms/youtube.py
-# ---------------------------------------------------------------------------
-# YouTube client rotation — same strategy as platforms/youtube.py
-# YouTube periodically blocks old player clients (403 / "No formats found").
-# We rotate through 4 client sets with optional TLS impersonation.
-# ---------------------------------------------------------------------------
+# ---- Search providers -----------------------------------------------------
 
-_YT_CLIENT_SETS = [
-    ["android_vr", "web_safari"],
-    ["tv_downgraded", "web_safari"],
-    ["ios", "android"],
-    ["web", "mweb"],
-]
-
-_YT_FALLBACK_MARKERS = (
-    "no video formats found",
-    "http error 403",
-    "sign in to confirm",
-    "player_response",
-    "unable to extract",
-    "this video is unavailable",
-    "age",
-)
-
-
-def _yt_impersonate():
-    """Try to get a Chrome TLS impersonation target (needs curl_cffi)."""
-    try:
-        import curl_cffi  # noqa: F401
-        from yt_dlp.networking.impersonate import ImpersonateTarget
-        return ImpersonateTarget.from_str("chrome")
-    except Exception:
-        return None
-
-
-def _yt_should_retry(error: str) -> bool:
-    if not error:
-        return True
-    low = error.lower()
-    return any(m in low for m in _YT_FALLBACK_MARKERS)
-
-
-def _yt_extract_info(url: str, extra_opts: dict = None) -> dict | None:
-    """Extract info from a YouTube URL with client rotation.
-
-    Tries each client set in order. Returns the info dict on success,
-    None on failure.  Applies TLS impersonation on the primary set.
-    """
-    impersonate = _yt_impersonate()
-    base = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "no_color": True,
-        "nocheckcertificate": True,
-        "extract_flat": False,
-    }
-    if extra_opts:
-        base.update(extra_opts)
-
-    for i, clients in enumerate(_YT_CLIENT_SETS):
-        opts = dict(base)
-        opts["extractor_args"] = {"youtube": {"player_client": list(clients)}}
-        if i == 0 and impersonate is not None:
-            opts["impersonate"] = impersonate
-
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info is not None:
-                    return info
-        except Exception as e:
-            if not _yt_should_retry(str(e)):
-                return None
-            continue
-    return None
-
-
-def _yt_download_with_rotation(url: str, output_tpl: str, extra_opts: dict = None) -> dict:
-    """Download from YouTube with client rotation. Returns result dict."""
-    impersonate = _yt_impersonate()
-    base = {
-        "quiet": True,
-        "no_warnings": True,
-        "no_color": True,
-        "nocheckcertificate": True,
-        "ignoreerrors": True,
-        "retries": 3,
-    }
-    if extra_opts:
-        base.update(extra_opts)
-
-    for i, clients in enumerate(_YT_CLIENT_SETS):
-        opts = dict(base)
-        opts["extractor_args"] = {"youtube": {"player_client": list(clients)}}
-        if i == 0 and impersonate is not None:
-            opts["impersonate"] = impersonate
-        # Set output template if provided
-        if output_tpl:
-            opts["outtmpl"] = output_tpl
-
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                if info is not None:
-                    return {"success": True, "info": info}
-        except Exception as e:
-            if not _yt_should_retry(str(e)):
-                return {"success": False, "error": str(e)}
-            continue
-    return {"success": False, "error": "All YouTube client strategies failed"}
-
-
-# ---------------------------------------------------------------------------
-# Deezer — free public API, no key, no account
-# ---------------------------------------------------------------------------
-_DEEZER_API = "https://api.deezer.com"
-_DEEZER_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-)
-
-
-def _deezer_get(path: str, **params) -> dict:
-    url = f"{_DEEZER_API}{path}"
-    if params:
-        url += "?" + urlencode(params)
-    req = Request(url, headers={"User-Agent": _DEEZER_UA})
-    with urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
-def _deezer_track(item: dict) -> dict:
-    artist = (item.get("artist") or {}).get("name", "Unknown")
-    album = item.get("album") or {}
-    return {
-        "id": f"dz_{item['id']}",
-        "source": "deezer",
-        "kind": "track",
-        "title": item.get("title", "Unknown"),
-        "artist": artist,
-        "duration": int(item.get("duration") or 0),
-        "cover": album.get("cover_medium") or album.get("cover"),
-        "preview_url": item.get("preview"),
-        "source_url": item.get("link", f"https://www.deezer.com/track/{item['id']}"),
-        "album": album.get("title", ""),
-    }
-
-
-def _deezer_album(item: dict) -> dict:
-    artist = (item.get("artist") or {}).get("name", "")
-    year = (item.get("release_date") or "")[:4]
-    subtitle = " · ".join(p for p in (artist, year) if p)
-    return {
-        "id": f"dz_album_{item['id']}",
-        "source": "deezer",
-        "kind": "album",
-        "title": item.get("title", ""),
-        "artist": subtitle,
-        "duration": 0,
-        "cover": item.get("cover_medium"),
-        "preview_url": None,
-        "source_url": item.get("link", f"https://www.deezer.com/album/{item['id']}"),
-        "album": "",
-        "track_count": item.get("nb_tracks", 0),
-    }
-
-
-def _deezer_artist(item: dict) -> dict:
-    return {
-        "id": f"dz_artist_{item['id']}",
-        "source": "deezer",
-        "kind": "artist",
-        "title": item.get("name", ""),
-        "artist": f"{item.get('nb_album', 0)} releases",
-        "duration": 0,
-        "cover": item.get("picture_medium"),
-        "preview_url": None,
-        "source_url": item.get("link", f"https://www.deezer.com/artist/{item['id']}"),
-        "album": "",
-    }
-
-
-def _search_deezer(query: str, page: int = 0) -> list[dict]:
-    limit = 25
-    index = page * limit
-    results = []
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        tracks_f = pool.submit(_deezer_get, "/search/track", q=query, limit=limit, index=index)
-        albums_f = pool.submit(_deezer_get, "/search/album", q=query, limit=15, index=index)
-        artists_f = pool.submit(_deezer_get, "/search/artist", q=query, limit=10, index=index)
-
-    for item in (tracks_f.result().get("data") or []):
-        results.append(_deezer_track(item))
-    for item in (albums_f.result().get("data") or []):
-        results.append(_deezer_album(item))
-    for item in (artists_f.result().get("data") or []):
-        results.append(_deezer_artist(item))
-    return results
-
-
-# ---------------------------------------------------------------------------
-# YouTube — via yt-dlp ytsearch
-# ---------------------------------------------------------------------------
-
-def _classify_youtube(entry: dict) -> str:
-    """Decide if a YouTube result is a video, podcast, or track.
-
-    Heuristics:
-    - Duration > 1200s (20min) + podcast-like title keywords → podcast
-    - Has video codec info or is clearly a music video → video
-    - Otherwise → track (audio-focused)
-    """
-    duration = int(entry.get("duration") or 0)
-    title = (entry.get("title") or "").lower()
-    channel = (entry.get("channel") or entry.get("uploader") or "").lower()
-
-    # Podcast detection: long duration + podcast keywords
-    podcast_keywords = (
-        "podcast", "episode", "ep.", " ep ", "interview", "talk show",
-        "discussion", "conversation", "panel", "lecture", "audiobook",
-        "joe rogan", "lex fridman", "huberman", "ted talk", "keynote",
-    )
-    combined = f"{title} {channel}"
-    if duration > 1200 or any(kw in combined for kw in podcast_keywords):
-        if duration > 600:  # 10+ minutes with podcast keyword
-            return "podcast"
-
-    # Video detection: music video, official video, lyric video, etc.
-    video_keywords = (
-        "official video", "music video", "lyric video", "mv",
-        "live performance", "concert", "visualizer", "short film",
-    )
-    if any(kw in title for kw in video_keywords):
-        return "video"
-
-    # Long videos (5+ minutes) are likely video content
-    if duration >= 300:
-        return "video"
-
-    return "track"
-
-
-def _search_youtube(query: str, page: int = 0) -> list[dict]:
+def _search_youtube(query: str, page: int = 0, music: bool = False) -> list[dict]:
     count = 25
     opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": True,
-        "default_search": "ytsearch",
-        "no_color": True,
+        "quiet": True, "no_warnings": True, "skip_download": True,
+        "extract_flat": True, "default_search": "ytsearch", "no_color": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"ytsearch{count}:{query}", download=False)
+            data = ydl.extract_info(f"ytsearch{count}:{query}", download=False)
     except Exception:
         return []
-
     results = []
-    for entry in (info or {}).get("entries") or []:
-        if not entry:
+    for entry in (data or {}).get("entries") or []:
+        if not entry or not entry.get("id"):
             continue
-        kind = _classify_youtube(entry)
         duration = int(entry.get("duration") or 0)
-        thumb = entry.get("thumbnails", [{}])
-        cover = thumb[-1].get("url") if thumb else None
+        title = entry.get("title", "Unknown")
+        lower = f"{title} {entry.get('uploader') or entry.get('channel') or ''}".lower()
+        podcast_terms = ("podcast", "episode", "interview", "conversation", "lecture", "audiobook")
+        video_terms = ("official video", "music video", "live performance", "concert", "visualizer")
+        if not music and duration > 600 and any(x in lower for x in podcast_terms):
+            kind = "podcast"
+        elif not music and (duration >= 300 or any(x in lower for x in video_terms)):
+            kind = "video"
+        else:
+            kind = "track"
+        thumb = entry.get("thumbnails") or []
+        video_id = entry["id"]
         results.append({
-            "id": f"yt_{entry.get('id', '')}",
-            "source": "youtube",
-            "kind": kind,
-            "title": entry.get("title", "Unknown"),
-            "artist": entry.get("uploader") or entry.get("channel", "Unknown"),
+            "id": f"{'ytm' if music else 'yt'}_{video_id}",
+            "source": "youtube_music" if music else "youtube",
+            "kind": "track" if music else kind,
+            "title": title,
+            "artist": entry.get("uploader") or entry.get("channel") or "YouTube",
             "duration": duration,
-            "cover": cover,
+            "cover": thumb[-1].get("url") if thumb else None,
             "preview_url": None,
-            "source_url": entry.get("url") or entry.get("webpage_url", ""),
+            "source_url": f"https://music.youtube.com/watch?v={video_id}" if music else f"https://www.youtube.com/watch?v={video_id}",
             "album": "",
-            "has_video": kind in ("video", "podcast"),
+            "has_video": not music and kind in {"video", "podcast"},
         })
-
     return results
 
-
-# ---------------------------------------------------------------------------
-# SoundCloud — via yt-dlp scsearch
-# ---------------------------------------------------------------------------
 
 def _search_soundcloud(query: str, page: int = 0) -> list[dict]:
-    count = 15
     opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": True,
-        "default_search": "scsearch",
-        "no_color": True,
+        "quiet": True, "no_warnings": True, "skip_download": True,
+        "extract_flat": True, "default_search": "scsearch", "no_color": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"scsearch{count}:{query}", download=False)
+            data = ydl.extract_info(f"scsearch15:{query}", download=False)
     except Exception:
         return []
-
     results = []
-    for entry in (info or {}).get("entries") or []:
+    for entry in (data or {}).get("entries") or []:
         if not entry:
             continue
         duration = int(entry.get("duration") or 0)
-        kind = "podcast" if duration > 1200 else "track"
+        thumb = entry.get("thumbnails") or []
         results.append({
-            "id": f"sc_{entry.get('id', '')}",
-            "source": "soundcloud",
-            "kind": kind,
+            "id": f"sc_{entry.get('id', '')}", "source": "soundcloud",
+            "kind": "podcast" if duration > 1200 else "track",
             "title": entry.get("title", "Unknown"),
-            "artist": entry.get("uploader") or entry.get("creator", "Unknown"),
+            "artist": entry.get("uploader") or entry.get("creator") or "SoundCloud",
             "duration": duration,
-            "cover": (entry.get("thumbnails") or [{}])[-1].get("url") if entry.get("thumbnails") else entry.get("artwork_url"),
+            "cover": thumb[-1].get("url") if thumb else entry.get("artwork_url"),
             "preview_url": None,
-            "source_url": entry.get("url") or entry.get("webpage_url", ""),
-            "album": "",
-            "has_video": False,
+            "source_url": entry.get("webpage_url") or entry.get("url", ""),
+            "album": "", "has_video": False,
         })
-
     return results
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-def _squash(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+def _squash(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
 
 
 def _relevance(result: dict, query: str) -> float:
     q = _squash(query)
-    name = _squash(result.get("title", ""))
-    both = f"{name} {_squash(result.get('artist', ''))}".strip()
-    score = max(
-        SequenceMatcher(None, q, name).ratio(),
-        SequenceMatcher(None, q, both).ratio(),
-    )
-    if name == q:
-        score = 1.0
-    elif name.startswith(q):
-        score = max(score, 0.93)
-    elif q in name:
-        score = max(score, 0.86)
-    tokens = set(q.split())
-    if tokens and tokens <= set(both.split()):
-        score = max(score, 0.8)
-    source_weight = {"deezer": 1.0, "soundcloud": 0.9, "youtube": 0.85}
-    return score * source_weight.get(result.get("source", ""), 0.8)
-
-
-def _dedup_key(result: dict) -> str:
-    artist = _squash(result.get("artist", "")).replace(" ", "")
-    title = _squash(result.get("title", "")).replace(" ", "")
-    return f"{result.get('kind', 'track')}:{title}:{artist}"
+    title = _squash(result.get("title", ""))
+    both = f"{title} {_squash(result.get('artist', ''))}".strip()
+    score = max(SequenceMatcher(None, q, title).ratio(), SequenceMatcher(None, q, both).ratio())
+    if title == q: score = 1.0
+    elif title.startswith(q): score = max(score, .93)
+    elif q in title: score = max(score, .86)
+    weights = {"soundcloud": 1.0, "youtube_music": .95, "youtube": .9}
+    return score * weights.get(result.get("source"), .8)
 
 
 def search_music(query: str, page: int = 0) -> dict:
-    """Search across all providers and return merged, ranked results."""
-    query = query.strip()
-    if not query:
+    """Search YouTube, YouTube Music and SoundCloud in parallel."""
+    if not query.strip():
         return {"results": [], "page": 0, "has_more": False}
-
-    providers = [_search_deezer, _search_youtube, _search_soundcloud]
-    all_results = []
-
-    with ThreadPoolExecutor(max_workers=len(providers)) as pool:
-        futures = {pool.submit(p, query, page): p.__name__ for p in providers}
-        for future in as_completed(futures, timeout=25):
-            try:
-                all_results.extend(future.result())
-            except Exception:
-                pass
-
-    seen = set()
-    unique = []
-    for r in all_results:
-        key = _dedup_key(r)
+    providers = [
+        lambda q, p: _search_youtube(q, p, music=False),
+        lambda q, p: _search_youtube(q, p, music=True),
+        _search_soundcloud,
+    ]
+    results = []
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(provider, query, page) for provider in providers]
+        for future in as_completed(futures):
+            try: results.extend(future.result())
+            except Exception: pass
+    unique, seen = [], set()
+    for result in results:
+        key = f"{result['kind']}:{_squash(result['title'])}:{_squash(result['artist'])}"
         if key not in seen:
-            seen.add(key)
-            unique.append(r)
-
-    unique.sort(key=lambda r: _relevance(r, query), reverse=True)
+            seen.add(key); unique.append(result)
+    unique.sort(key=lambda result: _relevance(result, query), reverse=True)
     return {"results": unique, "page": page, "has_more": len(unique) >= 20}
 
 
-# ---------------------------------------------------------------------------
-# Stream extraction — with YouTube client rotation + Deezer full-song fallback
-# ---------------------------------------------------------------------------
-
-# YouTube-specific errors that mean "skip this video, try another"
-_YT_SKIP_ERRORS = (
-    "sign in to confirm your age",
-    "video may be inappropriate",
-    "captcha",
-    "this video is not available",
-    "private video",
-    "this live event",
-    "members-only",
-)
-
+# ---- Full-length mixed-provider playback ---------------------------------
 
 def _sc_find_alternative(title: str, artist: str) -> dict | None:
-    """Search SoundCloud for a full-length fallback track."""
     query = f"{artist} {title}".strip()
     try:
-        opts = {
-            "quiet": True, "no_warnings": True, "skip_download": True,
-            "extract_flat": "in_playlist", "default_search": "scsearch",
-            "no_color": True, "format": "bestaudio/best",
-        }
+        opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": "in_playlist", "default_search": "scsearch", "format": "bestaudio/best"}
         with yt_dlp.YoutubeDL(opts) as ydl:
-            result = ydl.extract_info(f"scsearch5:{query}", download=False)
-        for entry in (result or {}).get("entries") or []:
-            if not entry:
-                continue
+            data = ydl.extract_info(f"scsearch5:{query}", download=False)
+        for entry in (data or {}).get("entries") or []:
             url = entry.get("webpage_url") or entry.get("url")
-            if not url:
-                continue
+            if not url: continue
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-            stream_url = (info or {}).get("url")
-            if not stream_url and (info or {}).get("formats"):
-                audio = [f for f in info["formats"] if f.get("acodec") != "none" and f.get("url")]
-                if audio:
-                    stream_url = audio[-1]["url"]
-            if stream_url:
-                return {
-                    "success": True,
-                    "stream_url": stream_url,
-                    "title": (info or {}).get("title", title),
-                    "duration": (info or {}).get("duration"),
-                    "source": "soundcloud",
-                    "fallback": True,
-                    "fallback_provider": "soundcloud",
-                }
+            stream = (info or {}).get("url")
+            if stream:
+                return {"success": True, "stream_url": stream, "source": "soundcloud", "fallback": True, "fallback_provider": "soundcloud", "title": info.get("title", title), "duration": info.get("duration")}
     except Exception:
         pass
     return None
 
 
-def _yt_find_alternative(title: str, artist: str, want_video: bool = False) -> dict | None:
-    """Search YouTube for the same track by title+artist and extract its stream.
-
-    Used when a Deezer track needs full playback (not 30s preview), or when
-    the original YouTube video is age-restricted / captcha-blocked.
-    """
-    query = f"{artist} - {title}" if artist else title
-    try:
-        opts = {
-            "quiet": True, "no_warnings": True, "skip_download": True,
-            "extract_flat": "in_playlist", "default_search": "ytsearch",
-            "no_color": True,
-        }
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            search_info = ydl.extract_info(f"ytsearch3:{query}", download=False)
-        entries = (search_info or {}).get("entries") or []
-        # Filter out entries that are likely age-restricted or unavailable
-        candidates = [e for e in entries if e and e.get("id")]
-        for entry in candidates[:3]:
-            url = entry.get("url") or entry.get("webpage_url", "")
-            if not url:
-                continue
-            info = _yt_extract_info(url, extra_opts={"format": "best[height<=720]/best" if want_video else "bestaudio/best"})
-            if info is None:
-                continue
-            stream_url = info.get("url")
-            if not stream_url and info.get("formats"):
-                audio = [f for f in info["formats"]
-                         if f.get("acodec") != "none" and f.get("url")]
-                if audio:
-                    stream_url = audio[-1]["url"]
-            if stream_url:
-                return {
-                    "success": True,
-                    "stream_url": stream_url,
-                    "title": info.get("title", title),
-                    "duration": info.get("duration"),
-                    "source": "youtube",
-                    "has_video": want_video,
-                    "fallback": True,  # indicates this came from a cross-source fallback
-                }
-    except Exception:
-        pass
-    return None
+def _select_format(info: dict, want_video: bool) -> str | None:
+    """Select a browser-playable format; prefer muxed MP4 for video."""
+    direct = info.get("url")
+    if direct: return direct
+    formats = info.get("formats") or []
+    if want_video:
+        candidates = [f for f in formats if f.get("url") and f.get("vcodec") != "none" and f.get("acodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "m4v_dash")]
+        if not candidates:
+            candidates = [f for f in formats if f.get("url") and f.get("vcodec") != "none" and f.get("acodec") != "none"]
+    else:
+        candidates = [f for f in formats if f.get("url") and f.get("acodec") != "none"]
+    candidates.sort(key=lambda f: (f.get("height") or 0, f.get("abr") or 0))
+    return candidates[-1].get("url") if candidates else None
 
 
-def get_stream_url(source_url: str, want_video: bool = False,
-                   title: str = "", artist: str = "") -> dict:
-    """Get a playable stream URL for a track/video/podcast.
-
-    Deezer → tries YouTube full-song first, falls back to 30s preview.
-    YouTube → client rotation; if age-restricted, tries alternate videos.
-    SoundCloud → direct extraction.
-    """
+def get_stream_url(source_url: str, want_video: bool = False, title: str = "", artist: str = "") -> dict:
+    """Return a fresh browser URL, official embed, or a clear failure."""
     if not source_url:
-        return {"success": False, "error": "No source URL provided"}
-
-    # --- Deezer: full song via YouTube, 30s preview as fallback ---
-    if "deezer.com" in source_url:
-        # Prefer SoundCloud for full-length fallback, then YouTube.
+        return {"success": False, "error": "No URL provided"}
+    is_youtube = "youtube.com" in source_url or "youtu.be" in source_url
+    if is_youtube:
+        fmt = "best[ext=mp4][height<=720]/best[height<=720]/best" if want_video else "bestaudio/best"
+        info = _yt_extract_info(source_url, {"format": fmt})
+        stream = _select_format(info or {}, want_video) if info else None
+        if stream:
+            return {"success": True, "stream_url": stream, "source": "youtube", "has_video": want_video, "title": info.get("title", title), "duration": info.get("duration")}
         if title:
-            sc_result = _sc_find_alternative(title, artist)
-            if sc_result:
-                return sc_result
-            yt_result = _yt_find_alternative(title, artist)
-            if yt_result:
-                return yt_result
-        # Do not silently present a 30s clip as a full player track.
-        return {
-            "success": False,
-            "source": "deezer",
-            "preview_only": True,
-            "error": "Full Deezer playback requires Deezer authentication; no SoundCloud full version was found.",
-        }
-
-    # --- YouTube: client rotation with age-restriction handling ---
-    if "youtube.com" in source_url or "youtu.be" in source_url:
-        fmt = "best[height<=720]/best" if want_video else "bestaudio/best"
-        info = _yt_extract_info(source_url, extra_opts={"format": fmt})
-
-        if info is None:
-            # Could be age-restricted or captcha — try alternate videos first,
-            # then let the official YouTube iframe handle browser playback.
-            if title:
-                alt = _yt_find_alternative(title, artist, want_video=want_video)
-                if alt:
-                    return alt
-            embed = _youtube_embed_result(
-                source_url, want_video,
-                "Direct extraction was blocked; switched to official YouTube playback.",
-            )
-            if embed:
-                return embed
-            return {"success": False, "error": "Video unavailable (age-restricted or blocked by YouTube)"}
-
-        # Check if extraction succeeded but returned an error marker
-        raw_error = (info.get("error") or "").lower()
-        if any(marker in raw_error for marker in _YT_SKIP_ERRORS):
-            if title:
-                alt = _yt_find_alternative(title, artist, want_video=want_video)
-                if alt:
-                    return alt
-            return {"success": False, "error": "Video is age-restricted or requires sign-in"}
-
-        stream_url = info.get("url")
-        if not stream_url and info.get("formats"):
-            if want_video:
-                muxed = [f for f in info["formats"]
-                         if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("url")]
-                if muxed:
-                    stream_url = muxed[-1]["url"]
-            else:
-                audio = [f for f in info["formats"]
-                         if f.get("acodec") != "none" and f.get("url")]
-                if audio:
-                    stream_url = audio[-1]["url"]
-
-        if stream_url:
-            return {
-                "success": True,
-                "stream_url": stream_url,
-                "title": info.get("title", ""),
-                "duration": info.get("duration"),
-                "source": "youtube",
-                "has_video": want_video or bool(info.get("vcodec")),
-            }
-
-        # Last resort: try alternate
-        if title:
-            alt = _yt_find_alternative(title, artist, want_video=want_video)
-            if alt:
-                return alt
-        return {"success": False, "error": "No stream found"}
-
-    # --- SoundCloud ---
-    opts = {
-        "quiet": True, "no_warnings": True, "skip_download": True,
-        "format": "bestaudio/best", "no_color": True, "nocheckcertificate": True,
-    }
+            alt = _sc_find_alternative(title, artist) if not want_video else None
+            if alt: return alt
+        embed = _youtube_embed_result(source_url, "Direct extraction blocked; using official YouTube playback.")
+        if embed: return embed
+        return {"success": False, "error": "YouTube playback is unavailable for this item."}
+    # SoundCloud and YouTube Music URLs are handled by yt-dlp. YouTube Music
+    # URLs resolve through the YouTube extractor but remain labeled as music.
+    if "music.youtube.com" in source_url:
+        source_url = source_url.replace("music.youtube.com", "www.youtube.com")
+    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "bestaudio/best", "nocheckcertificate": True}
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(source_url, download=False)
-            if info is None:
-                return {"success": False, "error": "Could not extract stream URL"}
-            stream_url = info.get("url")
-            if not stream_url and info.get("formats"):
-                audio = [f for f in info["formats"]
-                         if f.get("acodec") != "none" and f.get("url")]
-                if audio:
-                    stream_url = audio[-1]["url"]
-            if stream_url:
-                return {
-                    "success": True, "stream_url": stream_url,
-                    "title": info.get("title", ""), "duration": info.get("duration"),
-                    "source": "soundcloud",
-                }
-            return {"success": False, "error": "No audio stream found"}
-    except Exception as e:
-        return {"success": False, "error": str(e)[:200]}
+        stream = _select_format(info or {}, False) if info else None
+        if stream:
+            return {"success": True, "stream_url": stream, "source": "youtube_music" if "music.youtube.com" in source_url else "soundcloud", "title": info.get("title", title), "duration": info.get("duration")}
+    except Exception:
+        pass
+    return {"success": False, "error": "No playable stream was found."}
 
 
 def resolve_for_download(source_url: str) -> str:
-    """Return a URL that yt-dlp can download directly."""
     return source_url
+
+
+def ffmpeg_available() -> bool:
+    """Whether FFmpeg is available for downloads/merging; browsers need muxed URLs."""
+    return shutil.which("ffmpeg") is not None
