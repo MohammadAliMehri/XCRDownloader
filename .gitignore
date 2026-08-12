@@ -18,4 +18,4 @@ Thumbs.db
 *.spec
 
 # Local tooling config
-.hermes/
+.h*rmes/
