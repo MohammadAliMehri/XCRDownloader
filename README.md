@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.5.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.6.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -10,7 +10,8 @@
 <p align="center">
   <strong>Free · Unlimited · No API Keys · No Rate Limits</strong><br>
   Download videos, music, and images from YouTube, SoundCloud, Instagram, TikTok, X/Twitter, Pinterest, and 1800+ sites.<br>
-  <strong>🎵 NEW: Search & Play</strong> — search YouTube, YouTube Music & SoundCloud, play inline, download as MP3.
+  <strong>🎵 NEW: Search & Play</strong> — search YouTube, YouTube Music & SoundCloud, play inline, download as MP3.<br>
+  <strong>🎬 NEW: Anime Stream</strong> — search and watch anime from Yomi, AniWatchTV, Film2Media & Miruro with subtitles.
 </p>
 
 <p align="center">
@@ -44,6 +45,8 @@
 - 🎧 **Audio extraction** — extract MP3 from any video
 - 🎵 **Music Search** — search across YouTube, YouTube Music & SoundCloud in one query, no API keys
 - ▶️ **Dedicated Player** — play tracks, videos, and podcasts with queue controls
+- 🎬 **Anime Search & Stream** — search anime across Yomi, AniWatchTV, Film2Media & Miruro; watch with subtitles (Sub/Dub)
+- 📺 **HLS streaming** — server-side media relay plays HLS streams in any browser (hls.js), with subtitle tracks
 - 🛠️ **FFmpeg integration** — merge and convert downloads with browser-safe online playback
 - 📊 **Quality selection** — Best, HD (1080p), SD (480p)
 - 🛡️ **Error handling** — human-readable error messages
@@ -168,6 +171,37 @@ POST /api/stream                  → get playable audio URL
 POST /api/download-track          → download as MP3
 ```
 
+## 🎬 Anime Search & Stream (v1.6.0)
+
+A dedicated **Anime tab** for searching, browsing, and watching anime from 4 free providers — no API keys, no login:
+
+| Provider | Source | Content |
+|----------|--------|---------|
+| 🎌 Yomi | AniList metadata + MegaPlay HLS | Anime search, episode lists, Sub & Dub, subtitles |
+| 👾 AniWatchTV | WordPress catalog + MegaPlay HLS | Anime search, episode lists, direct m3u8 |
+| 🎞️ Film2Media | WordPress REST (f2mc.top) | Persian movies/series/anime download portal |
+| 🌐 Miruro | WordPress catalog + dramastream player | Anime search, episode lists, embedded player |
+
+**Features:**
+- 🔍 **Search** — one query fans out to all providers in parallel (or filter by provider)
+- 🖼️ **Poster grid** — cover art, year, format, score, episode counts
+- 📄 **Detail panel** — synopsis, genres, full episode grid
+- 🎙️ **Sub / Dub toggle** — English dub where available (Yomi)
+- 💬 **Subtitles** — English VTT tracks auto-enabled on every episode
+- ▶️ **HLS playback** — hls.js player with server-side media relay; streams work in Chrome, Firefox, Edge, Safari
+- 🔗 **Embed fallback** — providers without direct streams fall back to their embedded player
+
+**How streaming works:** the app resolves fresh HLS sources at play time and relays media through a local proxy — the upstream CDNs enforce a `Referer` header browsers cannot send, so the server fetches with the correct referer, rewrites HLS playlists, and de-wraps CDN segments. You just click play.
+
+**API:**
+```
+GET  /api/anime/search?q=...&provider=all      → search results (provider: yomi/aniwatchtv/f2mc/miruro/all)
+GET  /api/anime/episodes?provider=yomi&anime_id=20
+GET  /api/anime/episodes?provider=aniwatchtv&page_url=...
+POST /api/anime/stream                         → {stream_url, subtitles, player_url} for an episode
+GET  /api/anime/media?url=...&ref=...          → media relay (playlists rewritten, segments de-wrapped)
+```
+
 ## 🌐 Web UI
 
 ```bash
@@ -181,6 +215,7 @@ Opens `http://127.0.0.1:8080` in your browser. Features:
 - 🔍 **Auto-preview** — paste a URL → see title, thumbnail, duration, views before downloading
 - 🎵 **Music Search** — search songs, videos, podcasts, and YouTube Music
 - ▶️ **Dedicated Player** — queue, seek, play/pause, shuffle, repeat, volume, video mode
+- 🎬 **Anime tab** — search & watch anime from 4 providers with subtitles (Sub/Dub)
 - 🛠️ **FFmpeg-aware playback** — browser-safe muxed formats for online video; FFmpeg for downloads
 - 🎨 Modern dark theme
 - 📋 Single & batch download
@@ -254,7 +289,8 @@ XCRDownloader/
 ├── src/
 │   ├── engine.py          # Download engine + error humanizer
 │   ├── search.py          # YouTube + YouTube Music + SoundCloud search/player
-│   ├── web.py             # Flask Web UI backend (+ search/stream/download-track APIs)
+│   ├── anime.py           # Anime search + streaming (Yomi/MegaPlay, AniWatchTV, Film2Media, Miruro)
+│   ├── web.py             # Flask Web UI backend (+ search/stream/download-track/anime APIs + media relay)
 │   ├── platforms/
 │   │   ├── base.py        # Base downloader (yt-dlp)
 │   │   ├── instagram.py   # Instagram handler
