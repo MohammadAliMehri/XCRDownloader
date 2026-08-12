@@ -407,3 +407,146 @@ select:focus { border-color: var(--accent); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.25s ease; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+
+/* =====================================================================
+   ANIME TAB — neon/cyberpunk aesthetic
+   ===================================================================== */
+.anime-page { display: flex; flex-direction: column; gap: 16px; }
+
+.anime-search-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.anime-search-row .input-main { flex: 1; }
+.anime-search-row .select-main { width: auto; min-width: 180px; }
+
+/* ---- Result cards (poster grid) ---- */
+.anime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 14px;
+}
+.anime-card {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(160deg, #14141c 0%, #1a1028 60%, #201030 100%);
+    border: 1px solid #2e2450;
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+.anime-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: #a855f7;
+    box-shadow: 0 0 0 1px rgba(168,85,247,0.35), 0 12px 32px -8px rgba(168,85,247,0.45),
+                0 0 24px -6px rgba(236,72,153,0.35);
+}
+.anime-card-cover {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    background: #0d0d14;
+}
+.anime-card-cover.anime-ph {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.4rem; color: #a78bfa;
+    background: linear-gradient(160deg, #1a1a2e, #241a3a);
+}
+.anime-card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.anime-card-title {
+    font-size: 0.88rem; font-weight: 700; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    background: linear-gradient(90deg, #f0f0ff, #d8b4fe);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.anime-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-2); }
+.anime-card-eps { font-size: 0.72rem; color: #22d3ee; font-weight: 600; }
+
+/* provider badges */
+.anime-badge {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; color: #fff;
+}
+.anime-badge-yomi      { background: linear-gradient(90deg, #0ea5e9, #6366f1); box-shadow: 0 0 10px rgba(14,165,233,0.5); }
+.anime-badge-aniwatchtv{ background: linear-gradient(90deg, #f472b6, #a855f7); box-shadow: 0 0 10px rgba(244,114,182,0.5); }
+.anime-badge-f2mc      { background: linear-gradient(90deg, #f59e0b, #ef4444); box-shadow: 0 0 10px rgba(245,158,11,0.5); }
+.anime-badge-miruro    { background: linear-gradient(90deg, #10b981, #22d3ee); box-shadow: 0 0 10px rgba(16,185,129,0.5); }
+
+/* ---- Detail panel ---- */
+.anime-detail-head { display: flex; gap: 18px; margin-bottom: 16px; }
+.anime-detail-cover {
+    width: 180px; aspect-ratio: 2 / 3; object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid #3b2a63;
+    box-shadow: 0 0 24px -4px rgba(168,85,247,0.55);
+    flex-shrink: 0;
+}
+.anime-detail-info { flex: 1; min-width: 0; }
+.anime-detail-info h2 {
+    font-size: 1.35rem; font-weight: 800; margin-bottom: 6px;
+    background: linear-gradient(90deg, #f5f3ff, #e9d5ff, #67e8f9);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.anime-detail-info .meta { font-size: 0.8rem; color: var(--text-2); margin-bottom: 10px; }
+.anime-detail-desc {
+    font-size: 0.82rem; color: var(--text-1); line-height: 1.6;
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.anime-ep-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.anime-ep-label {
+    font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #e9d5ff;
+}
+.anime-dub-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.78rem; color: var(--text-1); cursor: pointer;
+    background: var(--bg-2); padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+.anime-dub-toggle:hover { border-color: #a855f7; }
+.anime-dub-toggle input { accent-color: #a855f7; }
+
+.anime-episodes {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    max-height: 320px; overflow-y: auto; padding: 4px 2px;
+}
+.anime-ep-btn {
+    min-width: 46px; padding: 8px 12px;
+    font-size: 0.82rem; font-weight: 700; color: #e9e9ff;
+    background: linear-gradient(160deg, #191926, #221433);
+    border: 1px solid #33255a;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.anime-ep-btn:hover {
+    background: linear-gradient(160deg, #2b1f45, #3b2360);
+    border-color: #a855f7;
+    box-shadow: 0 0 14px -2px rgba(168,85,247,0.6);
+    transform: translateY(-2px);
+}
+.anime-note {
+    padding: 14px; border-radius: 10px; font-size: 0.85rem; color: var(--text-1);
+    background: var(--accent-dim); border: 1px dashed var(--border-focus);
+    display: flex; flex-direction: column; gap: 6px;
+}
+
+/* ---- Player card ---- */
+.anime-player-card {
+    border: 1px solid #3b2a63;
+    box-shadow: 0 0 40px -8px rgba(168,85,247,0.5), inset 0 0 60px -40px rgba(168,85,247,0.6);
+}
+.anime-player-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.anime-player-head #anime-player-title {
+    font-weight: 700; font-size: 0.95rem;
+    background: linear-gradient(90deg, #f0abfc, #a5f3fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

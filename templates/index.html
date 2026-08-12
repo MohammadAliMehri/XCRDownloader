@@ -18,8 +18,9 @@
             <div class="nav-tabs">
                 <button class="nav-tab active" data-page="downloader">⬇️ Downloader</button>
                 <button class="nav-tab" data-page="player">🎵 Player</button>
+                <button class="nav-tab" data-page="anime">🎬 Anime</button>
             </div>
-            <span class="nav-version">v1.5</span>
+            <span class="nav-version">v1.6.0</span>
         </div>
     </nav>
 
@@ -203,6 +204,64 @@
     <!-- Hidden audio element -->
     <audio id="np-audio" preload="none"></audio>
 
+    <!-- ===================== ANIME PAGE ===================== -->
+    <div class="page" id="page-anime">
+        <div class="page-inner anime-page">
+
+            <!-- Search -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>🎬 Anime Stream</h2>
+                </div>
+                <div class="player-search anime-search-row">
+                    <input type="text" id="anime-search-input" class="input-main" placeholder="Search anime — Naruto, One Piece, Jujutsu Kaisen..." autocomplete="off">
+                    <select id="anime-provider" class="select-main" title="Search provider">
+                        <option value="all">All providers</option>
+                        <option value="yomi">Yomi (AniList)</option>
+                        <option value="aniwatchtv">AniWatchTV</option>
+                        <option value="f2mc">Film2Media</option>
+                        <option value="miruro">Miruro</option>
+                    </select>
+                </div>
+                <div id="anime-status" class="search-status"></div>
+                <div id="anime-results" class="anime-grid"></div>
+            </section>
+
+            <!-- Detail -->
+            <section class="card" id="anime-detail" style="display:none;">
+                <div class="anime-detail-head">
+                    <img id="anime-detail-cover" class="anime-detail-cover" alt="">
+                    <div class="anime-detail-info">
+                        <h2 id="anime-detail-title"></h2>
+                        <div class="meta" id="anime-detail-meta"></div>
+                        <p class="anime-detail-desc" id="anime-detail-desc"></p>
+                    </div>
+                </div>
+                <div class="anime-ep-row">
+                    <div class="anime-ep-label">Episodes</div>
+                    <label class="anime-dub-toggle" id="anime-dub-wrap" style="display:none;" title="English dubbed audio where available">
+                        <input type="checkbox" id="anime-dub"> 🎙️ Dub
+                    </label>
+                </div>
+                <div id="anime-episodes" class="anime-episodes"></div>
+            </section>
+
+            <!-- Player -->
+            <section class="card anime-player-card" id="anime-player-card" style="display:none;">
+                <div class="anime-player-head">
+                    <div id="anime-player-title">—</div>
+                    <button class="btn btn-ghost" id="anime-player-close">✕</button>
+                </div>
+                <div id="anime-player-area">
+                    <video id="anime-video" controls playsinline style="width:100%;max-height:520px;background:#000;border-radius:10px;"></video>
+                    <iframe id="anime-embed" style="display:none;width:100%;height:480px;border:0;border-radius:10px;background:#000;" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

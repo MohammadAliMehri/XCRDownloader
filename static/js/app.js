@@ -1,6 +1,6 @@
 /**
- * XCRDownloader — Web UI v1.4
- * Downloader + Music/Video/Podcast Player
+ * XCRDownloader — Web UI v1.6.0
+ * Downloader + Music/Video/Podcast Player + Anime Stream
  */
 document.addEventListener('DOMContentLoaded', () => {
     // ===== TOP NAV =====
@@ -508,5 +508,209 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!src)return;
         fetch('/api/download-track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_url:src,title:title||'Unknown',artist:artist||''})})
         .then(r=>r.json()).then(d=>{if(d.job_id){pollJob(d.job_id);document.querySelector('.nav-tab[data-page="downloader"]').click();}}).catch(()=>{});
+    }
+
+    // =========================================================================
+    // ANIME — search & stream (Yomi/MegaPlay, AniWatchTV, Film2Media, Miruro)
+    // =========================================================================
+    const animeInput = document.getElementById('anime-search-input');
+    const animeProvider = document.getElementById('anime-provider');
+    const animeResults = document.getElementById('anime-results');
+    const animeStatus = document.getElementById('anime-status');
+    const animeDetail = document.getElementById('anime-detail');
+    const animeEpisodes = document.getElementById('anime-episodes');
+    const animeDub = document.getElementById('anime-dub');
+    const animeDubWrap = document.getElementById('anime-dub-wrap');
+    const animePlayerCard = document.getElementById('anime-player-card');
+    const animeVideo = document.getElementById('anime-video');
+    const animeEmbed = document.getElementById('anime-embed');
+    const animePlayerTitle = document.getElementById('anime-player-title');
+    let currentAnime = null;
+
+    animeInput.addEventListener('keydown', e => { if (e.key === 'Enter') animeSearch(animeInput.value); });
+    animeProvider.addEventListener('change', () => { if (animeInput.value.trim()) animeSearch(animeInput.value); });
+    document.getElementById('anime-player-close').addEventListener('click', () => {
+        animePlayerCard.style.display = 'none';
+        stopAnimePlayback();
+    });
+
+    function animeSearch(q) {
+        if (!q.trim()) return;
+        animeResults.innerHTML = '';
+        animeDetail.style.display = 'none';
+        animePlayerCard.style.display = 'none';
+        stopAnimePlayback();
+        animeStatus.innerHTML = '<span class="loading">⏳ Searching anime providers...</span>';
+        fetch(`/api/anime/search?q=${encodeURIComponent(q)}&provider=${encodeURIComponent(animeProvider.value)}`)
+            .then(r => r.json())
+            .then(data => {
+                animeStatus.innerHTML = '';
+                if (data.error) { animeStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
+                const rs = data.results || [];
+                if (!rs.length) { animeStatus.innerHTML = '<span class="empty">No anime found.</span>'; return; }
+                rs.forEach(r => animeResults.appendChild(animeCard(r)));
+            })
+            .catch(e => animeStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`);
+    }
+
+    function animeCard(r) {
+        const el = document.createElement('div');
+        el.className = 'anime-card fade-in';
+        const cover = r.cover
+            ? `<img class="anime-card-cover" src="${r.cover}" loading="lazy" alt="">`
+            : `<div class="anime-card-cover anime-ph">🎬</div>`;
+        const metaBits = [];
+        if (r.year) metaBits.push(r.year);
+        if (r.format) metaBits.push(r.format);
+        if (r.score) metaBits.push(`⭐ ${(r.score / 10).toFixed(1)}`);
+        el.innerHTML = `
+            ${cover}
+            <div class="anime-card-body">
+                <div class="anime-card-title">${esc(r.title)}</div>
+                <div class="anime-card-meta">
+                    <span class="anime-badge anime-badge-${esc(r.provider)}">${esc(r.provider)}</span>
+                    ${metaBits.map(m => `<span>${m}</span>`).join('')}
+                </div>
+                ${r.episodes ? `<div class="anime-card-eps">📺 ${r.episodes} ep</div>` : ''}
+            </div>`;
+        el.addEventListener('click', () => openAnime(r));
+        return el;
+    }
+
+    function openAnime(r) {
+        currentAnime = r;
+        animePlayerCard.style.display = 'none';
+        stopAnimePlayback();
+        const coverImg = document.getElementById('anime-detail-cover');
+        if (r.cover) { coverImg.src = r.cover; coverImg.style.display = 'block'; }
+        else { coverImg.removeAttribute('src'); coverImg.style.display = 'none'; }
+        document.getElementById('anime-detail-title').textContent = r.title || '';
+        const meta = [];
+        if (r.alt_title && r.alt_title !== r.title) meta.push(r.alt_title);
+        if (r.year) meta.push(r.year);
+        if (r.format) meta.push(r.format);
+        if (r.episodes) meta.push(`${r.episodes} episodes`);
+        if (r.score) meta.push(`⭐ ${(r.score / 10).toFixed(1)}`);
+        if (r.genres && r.genres.length) meta.push(r.genres.slice(0, 4).join(', '));
+        document.getElementById('anime-detail-meta').textContent = meta.join(' · ');
+        document.getElementById('anime-detail-desc').textContent = r.description || '';
+        animeDubWrap.style.display = (r.provider === 'yomi') ? 'flex' : 'none';
+        animeDetail.style.display = 'block';
+
+        animeEpisodes.innerHTML = '<span class="loading">⏳ Loading episodes...</span>';
+        const params = new URLSearchParams({ provider: r.provider });
+        if (r.provider === 'yomi' && r.anime_id) params.set('anime_id', r.anime_id);
+        if (r.url) params.set('page_url', r.url);
+        fetch(`/api/anime/episodes?${params}`)
+            .then(x => x.json())
+            .then(d => {
+                if (!d.success) {
+                    if (r.provider === 'f2mc') {
+                        animeEpisodes.innerHTML = `<div class="anime-note">Film2Media is a download portal — open the post page for download links.
+                            <a class="btn btn-primary" style="margin-top:10px;" href="${esc(r.url || '#')}" target="_blank" rel="noopener">↗ Open page</a></div>`;
+                    } else {
+                        animeEpisodes.innerHTML = `<span class="error">❌ ${d.error || 'Failed to load episodes'}</span>`;
+                    }
+                    return;
+                }
+                const eps = d.episodes || [];
+                if (!eps.length) { animeEpisodes.innerHTML = '<span class="empty">No episodes listed.</span>'; return; }
+                animeEpisodes.innerHTML = '';
+                eps.forEach(e => animeEpisodes.appendChild(epBtn(e)));
+            })
+            .catch(() => animeEpisodes.innerHTML = '<span class="error">❌ Network error</span>');
+        animeDetail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function epBtn(e) {
+        const b = document.createElement('button');
+        b.className = 'anime-ep-btn';
+        b.textContent = e.episode;
+        b.title = e.title;
+        b.addEventListener('click', () => playEpisode(e));
+        return b;
+    }
+
+    function playEpisode(e) {
+        const r = currentAnime;
+        if (!r) return;
+        animePlayerTitle.textContent = `${r.title} — ${e.title}`;
+        animePlayerCard.style.display = 'block';
+        stopAnimePlayback();
+        fetch('/api/anime/stream', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: r.provider, anime_id: r.anime_id, episode: e.episode, dub: animeDub.checked, page_url: r.url, episode_url: e.url || '' }),
+        })
+        .then(x => x.json())
+        .then(d => {
+            if (!d.success) {
+                animePlayerTitle.textContent = `⚠ ${d.error || 'Unavailable'}`;
+                return;
+            }
+            if (d.embed_only || !d.stream_url) {
+                animeEmbed.src = d.player_url || d.page_url || 'about:blank';
+                animeEmbed.style.display = 'block';
+                animeVideo.style.display = 'none';
+                return;
+            }
+            animeEmbed.style.display = 'none';
+            animeEmbed.src = 'about:blank';
+            animeVideo.style.display = 'block';
+            playAnimeHls(d.stream_url, d.subtitles || []);
+        })
+        .catch(() => animePlayerTitle.textContent = '⚠ Network error');
+        animePlayerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    let animeHls = null;
+    function stopAnimePlayback() {
+        if (animeHls) { try { animeHls.destroy(); } catch (e) {} animeHls = null; }
+        animeVideo.pause();
+        animeVideo.removeAttribute('src');
+        animeVideo.load();
+        animeVideo.querySelectorAll('track').forEach(t => t.remove());
+        animeEmbed.src = 'about:blank';
+    }
+
+    function playAnimeHls(url, subs) {
+        stopAnimePlayback();
+        animeVideo.style.display = 'block';
+        // native <track> elements for the external VTT subtitle files
+        (subs || []).forEach((s, i) => {
+            const t = document.createElement('track');
+            t.kind = 'subtitles';
+            t.label = s.label || ('Subtitle ' + (i + 1));
+            t.srclang = 'en';
+            t.src = s.file;
+            t.default = (i === 0);
+            animeVideo.appendChild(t);
+        });
+        if (window.Hls && Hls.isSupported()) {
+            animeHls = new Hls({ enableWorker: true });
+            animeHls.loadSource(url);
+            animeHls.attachMedia(animeVideo);
+            animeHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                animeVideo.play().catch(() => {});
+                enableAnimeSubs();
+            });
+        } else if (animeVideo.canPlayType('application/vnd.apple.mpegurl')) {
+            animeVideo.src = url;
+            animeVideo.addEventListener('loadedmetadata', () => {
+                animeVideo.play().catch(() => {});
+                enableAnimeSubs();
+            }, { once: true });
+        } else {
+            animePlayerTitle.textContent = '⚠ Your browser cannot play HLS streams';
+        }
+    }
+
+    // Force the subtitle tracks to show (hls.js attaches its own text track layer)
+    function enableAnimeSubs() {
+        setTimeout(() => {
+            const tracks = animeVideo.textTracks;
+            for (let i = 0; i < tracks.length; i++) {
+                if (tracks[i].kind === 'subtitles') tracks[i].mode = 'showing';
+            }
+        }, 600);
     }
 })();
