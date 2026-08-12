@@ -16,3 +16,6 @@ build/
 Thumbs.db
 *.tmp
 *.spec
+
+# Local tooling config
+.hermes/
