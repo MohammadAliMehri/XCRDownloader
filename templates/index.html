@@ -20,7 +20,7 @@
                 <button class="nav-tab" data-page="player">🎵 Player</button>
                 <button class="nav-tab" data-page="anime">🎬 Anime</button>
             </div>
-            <span class="nav-version">v1.6.0</span>
+            <span class="nav-version">v1.7.0</span>
         </div>
     </nav>
 
@@ -146,6 +146,10 @@
                 </div>
                 <div id="search-status" class="search-status"></div>
                 <div id="search-results" class="search-results"></div>
+                <div id="search-empty" class="search-empty" style="display:none;">
+                    <div class="search-empty-icon">🎵</div>
+                    <div class="search-empty-text">No results found</div>
+                </div>
                 <div id="search-load-more" style="display:none;text-align:center;padding:12px;">
                     <button class="btn btn-ghost" id="btn-load-more">Load more</button>
                 </div>
@@ -225,6 +229,17 @@
                 </div>
                 <div id="anime-status" class="search-status"></div>
                 <div id="anime-results" class="anime-grid"></div>
+                <div id="anime-results-empty" class="anime-empty-state" style="display:none;">
+                    <div class="anime-empty-icon">🔍</div>
+                    <div class="anime-empty-title">No anime found</div>
+                    <div class="anime-empty-sub">Try a different query or provider</div>
+                </div>
+                <div id="anime-results-loading" class="anime-loading" style="display:none;">
+                    <div class="anime-loading-inner">
+                        <div class="anime-spinner"></div>
+                        <span>Searching anime...</span>
+                    </div>
+                </div>
             </section>
 
             <!-- Detail -->

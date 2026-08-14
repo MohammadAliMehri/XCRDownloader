@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.6.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.7.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -171,7 +171,7 @@ POST /api/stream                  → get playable audio URL
 POST /api/download-track          → download as MP3
 ```
 
-## 🎬 Anime Search & Stream (v1.6.0)
+## 🎬 Anime Search & Stream (v1.7.0)
 
 A dedicated **Anime tab** for searching, browsing, and watching anime from 4 free providers — no API keys, no login:
 
@@ -321,6 +321,20 @@ Contributions are welcome! Fork the repo, create a feature branch, and submit a 
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🆕 Changelog
+
+### v1.7.0 — Provider & player hardening
+- **Anime player**
+  - Miruro: fixed episode detection for slug-suffixed series (`-5rn3`, `-93rg`, …) — episode lists now load for every Miruro series, and stream URLs are built from the clean slug (`/solo-leveling-episode-1/`) instead of 404ing.
+  - AniWatchTV: resolves the gogoanime → megaplay iframe chain; when the site uses other embed hosts (kwik.cx, streamwish), the player falls back to the embeddable gogoanime player instead of failing.
+  - Yomi: full Sub/Dub m3u8 + subtitle relay verified end-to-end.
+  - Covers: missing posters are enriched from the series page `og:image` (capped for speed); hover play-overlay, episode counts, loading/empty states added to the UI.
+- **Music search** — YouTube results no longer include channel/playlist tabs (`YoutubeTab`/`YoutubePlaylist` entries with 24-char channel IDs) that produced broken `watch?v=` links.
+- **Downloaders** — yt-dlp kept at 2026.7.4 with `android_vr, web_safari` client rotation + curl_cffi TLS impersonation; TikTok UA rotation, SoundCloud/Instagram/etc. verified.
+- **Media relay** — HLS playlists fully rewritten through the relay; TikTok-CDN 252-byte segment wrapper stripping verified live.
 
 ---
 

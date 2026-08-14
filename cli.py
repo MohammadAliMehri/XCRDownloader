@@ -58,7 +58,7 @@ Examples:
     parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--search", action="store_true", help="Search YouTube, YouTube Music, and SoundCloud")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.6.0")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.7.0")
 
     args = parser.parse_args()
 

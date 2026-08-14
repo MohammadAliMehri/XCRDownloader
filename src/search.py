@@ -107,6 +107,15 @@ def _search_youtube(query: str, page: int = 0, music: bool = False) -> list[dict
     for entry in (data or {}).get("entries") or []:
         if not entry or not entry.get("id"):
             continue
+        # Skip non-video entries — ytsearch mixes in channel/playlist tabs
+        # (ie_key YoutubeTab / YoutubePlaylist) whose "id" is a 24-char
+        # channel handle, not an 11-char video id. Using one would mint
+        # broken watch?v= URLs.
+        if entry.get("ie_key") in ("YoutubeTab", "YoutubePlaylist"):
+            continue
+        video_id = entry.get("id") or ""
+        if len(video_id) != 11:
+            continue
         duration = int(entry.get("duration") or 0)
         title = entry.get("title", "Unknown")
         lower = f"{title} {entry.get('uploader') or entry.get('channel') or ''}".lower()
@@ -119,7 +128,6 @@ def _search_youtube(query: str, page: int = 0, music: bool = False) -> list[dict
         else:
             kind = "track"
         thumb = entry.get("thumbnails") or []
-        video_id = entry["id"]
         results.append({
             "id": f"{'ytm' if music else 'yt'}_{video_id}",
             "source": "youtube_music" if music else "youtube",

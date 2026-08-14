@@ -1,5 +1,5 @@
 /**
- * XCRDownloader — Web UI v1.6.0
+ * XCRDownloader — Web UI v1.7.0
  * Downloader + Music/Video/Podcast Player + Anime Stream
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const PLATFORM_ICONS = {
         instagram: '📸', tiktok: '🎵', twitter: '🐦', pinterest: '📌',
         youtube: '▶️', soundcloud: '🔊', youtube_music: '🎶', generic: '🌐'
+    };
+    const PROVIDER_LABELS = {
+        yomi: 'Yomi', aniwatchtv: 'AniWatchTV', f2mc: 'Film2Media', miruro: 'Miruro'
     };
 
     // ===== URL PREVIEW =====
@@ -275,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuery = query; currentPage = page;
         if (page === 0) {
             allResults = []; searchResults.innerHTML = '';
+            document.getElementById('search-empty').style.display = 'none';
             searchStatus.innerHTML = '<span class="loading">⏳ Searching YouTube, YouTube Music & SoundCloud...</span>';
             categoryTabs.style.display = 'none';
         }
@@ -282,9 +286,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(data => {
                 searchStatus.innerHTML = '';
+                document.getElementById('search-empty').style.display = 'none';
                 if (data.error) { searchStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
                 const results = data.results || [];
-                if (!results.length && page === 0) { searchStatus.innerHTML = '<span class="empty">No results.</span>'; categoryTabs.style.display = 'none'; return; }
+                if (!results.length && page === 0) {
+                    document.getElementById('search-empty').style.display = 'flex';
+                    categoryTabs.style.display = 'none';
+                    return;
+                }
                 allResults = allResults.concat(results);
                 categoryTabs.style.display = 'flex';
                 filterRender();
@@ -540,38 +549,52 @@ document.addEventListener('DOMContentLoaded', () => {
         animeDetail.style.display = 'none';
         animePlayerCard.style.display = 'none';
         stopAnimePlayback();
-        animeStatus.innerHTML = '<span class="loading">⏳ Searching anime providers...</span>';
+        document.getElementById('anime-results-loading').style.display = 'flex';
+        document.getElementById('anime-results-empty').style.display = 'none';
+        animeStatus.innerHTML = '';
         fetch(`/api/anime/search?q=${encodeURIComponent(q)}&provider=${encodeURIComponent(animeProvider.value)}`)
             .then(r => r.json())
             .then(data => {
-                animeStatus.innerHTML = '';
+                document.getElementById('anime-results-loading').style.display = 'none';
                 if (data.error) { animeStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
                 const rs = data.results || [];
-                if (!rs.length) { animeStatus.innerHTML = '<span class="empty">No anime found.</span>'; return; }
+                if (!rs.length) {
+                    animeResults.innerHTML = '';
+                    document.getElementById('anime-results-empty').style.display = 'flex';
+                    return;
+                }
+                document.getElementById('anime-results-empty').style.display = 'none';
                 rs.forEach(r => animeResults.appendChild(animeCard(r)));
             })
-            .catch(e => animeStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`);
+            .catch(e => {
+                document.getElementById('anime-results-loading').style.display = 'none';
+                animeStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`;
+            });
     }
 
     function animeCard(r) {
         const el = document.createElement('div');
         el.className = 'anime-card fade-in';
         const cover = r.cover
-            ? `<img class="anime-card-cover" src="${r.cover}" loading="lazy" alt="">`
+            ? `<div class="anime-card-cover-wrap">
+                <img class="anime-card-cover" src="${r.cover}" loading="lazy" alt="">
+                <div class="anime-card-cover-overlay"><div class="anime-card-play">▶</div></div>
+               </div>`
             : `<div class="anime-card-cover anime-ph">🎬</div>`;
         const metaBits = [];
         if (r.year) metaBits.push(r.year);
         if (r.format) metaBits.push(r.format);
         if (r.score) metaBits.push(`⭐ ${(r.score / 10).toFixed(1)}`);
+        const epCount = r.episodes ? `<span class="anime-card-eps">📺 ${r.episodes} ep</span>` : '';
         el.innerHTML = `
             ${cover}
             <div class="anime-card-body">
                 <div class="anime-card-title">${esc(r.title)}</div>
                 <div class="anime-card-meta">
-                    <span class="anime-badge anime-badge-${esc(r.provider)}">${esc(r.provider)}</span>
+                    <span class="anime-badge anime-badge-${esc(r.provider)}">${esc(PROVIDER_LABELS[r.provider] || r.provider)}</span>
                     ${metaBits.map(m => `<span>${m}</span>`).join('')}
                 </div>
-                ${r.episodes ? `<div class="anime-card-eps">📺 ${r.episodes} ep</div>` : ''}
+                ${epCount}
             </div>`;
         el.addEventListener('click', () => openAnime(r));
         return el;
@@ -596,8 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('anime-detail-desc').textContent = r.description || '';
         animeDubWrap.style.display = (r.provider === 'yomi') ? 'flex' : 'none';
         animeDetail.style.display = 'block';
-
-        animeEpisodes.innerHTML = '<span class="loading">⏳ Loading episodes...</span>';
+        animeEpisodes.innerHTML = '<div class="anime-loading"><div class="anime-loading-inner"><div class="anime-spinner"></div><span>Loading episodes...</span></div></div>';
         const params = new URLSearchParams({ provider: r.provider });
         if (r.provider === 'yomi' && r.anime_id) params.set('anime_id', r.anime_id);
         if (r.url) params.set('page_url', r.url);
@@ -609,14 +631,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         animeEpisodes.innerHTML = `<div class="anime-note">Film2Media is a download portal — open the post page for download links.
                             <a class="btn btn-primary" style="margin-top:10px;" href="${esc(r.url || '#')}" target="_blank" rel="noopener">↗ Open page</a></div>`;
                     } else {
-                        animeEpisodes.innerHTML = `<span class="error">❌ ${d.error || 'Failed to load episodes'}</span>`;
+                        animeEpisodes.innerHTML = `<div class="anime-empty-state"><div class="anime-empty-icon">⚠</div><div class="anime-empty-title">${esc(d.error || 'Failed to load episodes')}</div></div>`;
                     }
                     return;
                 }
                 const eps = d.episodes || [];
-                if (!eps.length) { animeEpisodes.innerHTML = '<span class="empty">No episodes listed.</span>'; return; }
-                animeEpisodes.innerHTML = '';
-                eps.forEach(e => animeEpisodes.appendChild(epBtn(e)));
+                if (!eps.length) {
+                    animeEpisodes.innerHTML = `<div class="anime-empty-state"><div class="anime-empty-icon">📭</div><div class="anime-empty-title">No episodes listed</div></div>`;
+                    return;
+                }
+                const total = eps.length;
+                animeEpisodes.innerHTML = `<div class="anime-episodes-header"><span class="anime-episodes-count">${total} episode${total !== 1 ? 's' : ''}</span></div>`;
+                const fragment = document.createDocumentFragment();
+                eps.forEach(e => fragment.appendChild(epBtn(e)));
+                animeEpisodes.appendChild(fragment);
             })
             .catch(() => animeEpisodes.innerHTML = '<span class="error">❌ Network error</span>');
         animeDetail.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -713,4 +741,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 600);
     }
-})();
+});

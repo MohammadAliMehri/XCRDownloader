@@ -19,6 +19,7 @@ MegaPlay source flow (yomi / aniwatchtv):
   3. Media CDNs enforce Referer: https://megaplay.buzz/ — browsers cannot set
      that header, so the Flask app relays media through /api/anime/media.
 """
+import base64
 import html
 import json
 import re
@@ -52,12 +53,16 @@ def _fetch(url: str, headers: dict | None = None, timeout: int = 25) -> str:
         **(headers or {}),
     })
     with urlopen(req, timeout=timeout) as resp:
-        # utf-8-sig: f2mc responses carry a UTF-8 BOM
-        return resp.read().decode("utf-8-sig", "replace")
+        raw = resp.read()
+        # utf-8-sig: f2mc responses carry a UTF-8 BOM; the WP providers
+        # also sometimes emit one. Always decode with utf-8-sig so the BOM
+        # is stripped before json.loads() sees it.
+        return raw.decode("utf-8-sig", "replace")
 
 
 def _json(url: str, headers: dict | None = None, timeout: int = 25) -> dict:
-    return json.loads(_fetch(url, headers=headers, timeout=timeout))
+    text = _fetch(url, headers=headers, timeout=timeout)
+    return json.loads(text)
 
 
 def _post_json(url: str, payload: dict, headers: dict | None = None) -> dict:
@@ -148,6 +153,22 @@ def _norm_wp(item: dict, provider: str, cover: str | None = None) -> dict:
     }
 
 
+def _fetch_og_image(page_url: str) -> str | None:
+    """Fetch a series page and extract the og:image meta tag."""
+    try:
+        text = _fetch(page_url, timeout=15)
+        m = re.search(r'<meta\s+property=["\']og:image["\'][^\>]+content=["\']([^"\']+)["\']', text)
+        if m:
+            return m.group(1)
+        # Try alternate format
+        m2 = re.search(r'<meta\s+content=["\']([^"\']+)["\'][^\>]+property=["\']og:image["\']', text)
+        if m2:
+            return m2.group(1)
+    except Exception:
+        pass
+    return None
+
+
 def _wp_search(provider: str, query: str, per_page: int = 15) -> list[dict]:
     cfg = _WP.get(provider)
     if not cfg:
@@ -204,20 +225,88 @@ def search_anime(query: str, provider: str = "all", page: int = 1) -> dict:
         if key not in seen:
             seen.add(key)
             unique.append(r)
+
+    # Enrich WP anime results (aniwatchtv, miruro, f2mc) that lack covers
+    # by scraping og:image from their series pages. Capped so a slow page
+    # can't stall the whole search response.
+    def _try_og_cover(item: dict) -> dict:
+        if item.get("provider") in ("aniwatchtv", "miruro", "f2mc") and not item.get("cover") and item.get("url"):
+            item = dict(item)
+            item["cover"] = _fetch_og_image(item["url"])
+        return item
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        unique = list(pool.map(_try_og_cover, unique[:12])) + unique[12:]
+
     return {"results": unique, "page": page, "has_more": len(unique) >= 20, "provider": provider}
 
 
+def _strip_random_slug_suffix(slug: str) -> str:
+    """Strip WP-theme random slugs like `-p965`, `-5rn3`, `-93rg`.
+
+    These 3-6 char suffixes (letters+digits, always containing a digit)
+    are appended by some WP anime themes and are NOT part of the real
+    series slug. Pure-letter endings (e.g. `-last`, `-king`) are kept.
+    """
+    m = re.search(r"-([a-z0-9]{3,6})$", slug)
+    if m and any(ch.isdigit() for ch in m.group(1)):
+        return slug[: m.start()]
+    return slug
+
+
+def _series_episode_url(page_url: str, episode: int) -> str:
+    """Build `https://host/slug-episode-N/` from a series page URL.
+
+    Miruro/AniWatchTV episode pages live at the site root with the clean
+    slug (`/solo-leveling-episode-12/`), while the series page URL has a
+    path prefix (`/series/`, `/anime/`) and a random slug suffix.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(page_url)
+    slug = _strip_random_slug_suffix(parsed.path.rstrip("/").rsplit("/", 1)[-1])
+    return f"{parsed.scheme}://{parsed.netloc}/{slug}-episode-{episode}/"
+
+
 def _extract_episodes(html: str, page_url: str) -> list[dict]:
-    """Scrape episode links from a WordPress series page (aniwatchtv/miruro)."""
-    base = page_url.rstrip("/").rsplit("/", 1)[-1]
-    core = re.sub(r"-\d[a-z0-9]{3}$", "", base)  # strip 4-char random suffix (miruro)
+    """Scrape episode links from a WordPress series page (aniwatchtv/miruro).
+
+    The page URL slug (e.g. "naruto" from /anime/naruto/) is used to filter
+    episode links that belong to this series.  Episodes may live under a
+    different slug variant (e.g. "naruto-dub-episode-1") so we also accept
+    any slug that starts with the series slug followed by a hyphen.
+
+    Some WP themes append a random suffix to series slugs (e.g. "name-p965").
+    We strip these suffixes before matching so episode links with the clean
+    slug are still recognised.
+    """
+    # Series slug from URL path — e.g. "naruto" from ".../anime/naruto/"
+    raw_slug = page_url.rstrip("/").rsplit("/", 1)[-1]
+
+    # Strip common random-suffix patterns: "-p965", "-5rn3", "-93rg"
+    # These are added by some WP themes and are NOT part of the real slug.
+    series_slug = _strip_random_slug_suffix(raw_slug)
+
+    # All -episode-N/ links on the page
     pattern = re.compile(r'href="([^"]*-episode-(\d+)/)"')
     found: dict[int, str] = {}
-    for full, num in pattern.findall(html):
-        slug = full.rstrip("/").rsplit("/", 1)[-1]
-        ep_slug = slug.rsplit("-episode-", 1)[0]
-        if ep_slug == base or (core and ep_slug.startswith(core)):
-            found.setdefault(int(num), full)
+
+    for full_url, num_str in pattern.findall(html):
+        num = int(num_str)
+        if num in found:
+            continue  # already stored a shorter URL for this episode number
+
+        # Derive the episode slug (the part before "-episode-N")
+        url_path = full_url.rstrip("/").rsplit("/", 1)[-1]   # e.g. "naruto-dub-episode-1"
+        ep_slug = url_path.rsplit("-episode-", 1)[0]          # e.g. "naruto-dub"
+
+        # Accept if the episode slug matches the series slug (with or without
+        # the random suffix stripped), or if it starts with the series slug
+        # followed by a hyphen.
+        if ep_slug == series_slug or ep_slug.startswith(series_slug + "-") \
+           or ep_slug == raw_slug or ep_slug.startswith(raw_slug + "-"):
+            found[num] = full_url
+
     return [
         {"episode": n, "title": f"Episode {n}", "url": found[n]}
         for n in sorted(found)
@@ -293,45 +382,115 @@ def _yomi_stream(anime_id: int, episode: int, dub: bool) -> dict:
 
 
 def _aniwatchtv_stream(episode_url: str) -> dict:
+    """AniWatchTV uses a gogoanime iframe on episode pages which in turn
+    loads a megaplay.buzz iframe. We resolve through that chain to get a
+    direct megaplay embed URL for browser playback."""
     try:
         html_text = _fetch(episode_url, headers={"Referer": "https://aniwatchtv.com.ro/"})
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "aniwatchtv"}
-    m = re.search(r'(https://megaplay\.su/embed\.php\?sid=[^"\']+)', html_text)
+
+    # Step 1: find the gogoanime iframe (data-litespeed-src on the episode page)
+    m = re.search(r'data-litespeed-src="(https?://[^"]+)"', html_text)
     if not m:
-        return {"success": False, "error": "Player embed not found on the episode page",
-                "provider": "aniwatchtv", "page_url": episode_url}
-    embed_url = m.group(1)
+        return {
+            "success": False,
+            "error": "No gogoanime iframe found on the episode page",
+            "provider": "aniwatchtv",
+            "page_url": episode_url,
+        }
+    gogo_url = m.group(1).strip()
+
     try:
-        embed_html = _fetch(embed_url, headers={"Referer": "https://aniwatchtv.com.ro/"})
-        fm = re.search(r'file:\s*"([^"]+)"', embed_html)
-        if fm and fm.group(1).strip():
-            return {
-                "success": True,
-                "stream_url": fm.group(1).strip(),
-                "subtitles": [],
-                "referer": "https://megaplay.su/",
-                "provider": "aniwatchtv",
-                "player_url": embed_url,
-            }
+        # Step 2: fetch the gogoanime player page; it carries a megaplay iframe
+        embed_html = _fetch(gogo_url, headers={"Referer": episode_url})
     except Exception:
-        pass
-    # The embed page itself is a complete player — usable as an iframe fallback
-    return {"success": True, "player_url": embed_url, "embed_only": True,
-            "provider": "aniwatchtv", "page_url": episode_url}
+        # Embed hosts like kwik.cx 403 non-browser requests. The gogoanime
+        # player page itself is still directly iframe-able in a browser.
+        embed_html = ""
+
+    # Step 3: extract the megaplay iframe src from the gogoanime page
+    mp = re.search(r'<iframe[^>]+src="(https?://megaplay\.buzz/[^"]+)"', embed_html)
+    if mp:
+        player_url = mp.group(1).strip()
+        # The megaplay iframe is directly playable in-browser
+        return {
+            "success": True,
+            "player_url": player_url,
+            "embed_only": True,
+            "provider": "aniwatchtv",
+            "page_url": episode_url,
+        }
+
+    # Some series use other embed hosts (kwik.cx, streamwish, ...) that
+    # 403 non-browser requests but are meant to be iframed. Return the
+    # gogoanime player page itself as an embed so the browser can play it.
+    return {
+        "success": True,
+        "player_url": gogo_url,
+        "embed_only": True,
+        "provider": "aniwatchtv",
+        "page_url": episode_url,
+    }
 
 
 def _miruro_stream(episode_url: str) -> dict:
+    """Miruro embeds a dramastream player iframe on episode pages. The iframe
+    src contains a base64-encoded query string that resolves to a megaplay
+    iframe. We decode it and return the megaplay URL for browser playback."""
     try:
         html_text = _fetch(episode_url, headers={"Referer": "https://miruro.ro/"})
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "miruro"}
-    m = re.search(r'(https://miruro\.ro/wp-content/themes/dramastream-child/player/\?[^"\']+)', html_text)
+
+    # Find the dramastream iframe src with the base64-encoded URL
+    m = re.search(
+        r'<iframe[^>]+src="([^"]*dramastream[^"]+)"',
+        html_text,
+    )
     if not m:
-        return {"success": False, "error": "Player embed not found on the episode page",
-                "provider": "miruro", "page_url": episode_url}
-    return {"success": True, "player_url": m.group(1), "embed_only": True,
-            "provider": "miruro", "page_url": episode_url}
+        return {
+            "success": False,
+            "error": "No dramastream player iframe found on the episode page",
+            "provider": "miruro",
+            "page_url": episode_url,
+        }
+
+    iframe_src = m.group(1)
+
+    # Extract and decode the `url=` base64 param
+    url_match = re.search(r'[?&]url=([^&]+)', iframe_src)
+    if not url_match:
+        return {
+            "success": False,
+            "error": "No url param found in dramastream iframe src",
+            "provider": "miruro",
+            "page_url": episode_url,
+        }
+
+    try:
+        decoded = base64.b64decode(url_match.group(1)).decode("utf-8")
+    except Exception:
+        decoded = None
+
+    if decoded and "megaplay.buzz" in decoded:
+        # Direct megaplay URL — playable as iframe
+        return {
+            "success": True,
+            "player_url": decoded,
+            "embed_only": True,
+            "provider": "miruro",
+            "page_url": episode_url,
+        }
+
+    # Fallback: return the full iframe src as an embed (some mirrors use it)
+    return {
+        "success": True,
+        "player_url": iframe_src,
+        "embed_only": True,
+        "provider": "miruro",
+        "page_url": episode_url,
+    }
 
 
 def get_anime_stream(provider: str = "yomi", anime_id: int | None = None,
@@ -348,11 +507,11 @@ def get_anime_stream(provider: str = "yomi", anime_id: int | None = None,
     if provider == "aniwatchtv":
         if not (episode_url or page_url):
             return {"success": False, "error": "Missing episode URL for AniWatchTV"}
-        return _aniwatchtv_stream((episode_url or "").strip() or f"{page_url.rstrip('/')}-episode-{episode}/")
+        return _aniwatchtv_stream((episode_url or "").strip() or _series_episode_url(page_url, episode))
     if provider == "miruro":
         if not (episode_url or page_url):
             return {"success": False, "error": "Missing episode URL for Miruro"}
-        return _miruro_stream((episode_url or "").strip() or f"{page_url.rstrip('/')}-episode-{episode}/")
+        return _miruro_stream((episode_url or "").strip() or _series_episode_url(page_url, episode))
     if provider == "f2mc":
         return {"success": False,
                 "error": "Film2Media is a download portal — open the post page for download links",

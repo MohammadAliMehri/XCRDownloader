@@ -368,6 +368,13 @@ select:focus { border-color: var(--accent); }
     background: var(--accent); border: none; cursor: pointer;
 }
 
+.search-empty {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 48px 24px; gap: 10px; text-align: center;
+}
+.search-empty-icon { font-size: 2.5rem; opacity: 0.4; }
+.search-empty-text { font-size: 0.9rem; color: var(--text-3); }
+
 /* Queue */
 .np-queue { margin-top: 20px; flex: 1; overflow-y: auto; }
 .queue-header { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); margin-bottom: 8px; }
@@ -434,17 +441,35 @@ select:focus { border-color: var(--accent); }
     display: flex;
     flex-direction: column;
 }
+.anime-card-cover-wrap {
+    position: relative; width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+}
 .anime-card:hover {
     transform: translateY(-4px) scale(1.02);
     border-color: #a855f7;
     box-shadow: 0 0 0 1px rgba(168,85,247,0.35), 0 12px 32px -8px rgba(168,85,247,0.45),
                 0 0 24px -6px rgba(236,72,153,0.35);
 }
+/* Play overlay on hover */
+.anime-card-cover-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.45);
+    opacity: 0; transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+.anime-card:hover .anime-card-cover-overlay { opacity: 1; }
+.anime-card-play {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(168,85,247,0.9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+}
 .anime-card-cover {
-    width: 100%;
-    aspect-ratio: 2 / 3;
-    object-fit: cover;
-    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
     background: #0d0d14;
 }
 .anime-card-cover.anime-ph {
@@ -532,6 +557,41 @@ select:focus { border-color: var(--accent); }
     padding: 14px; border-radius: 10px; font-size: 0.85rem; color: var(--text-1);
     background: var(--accent-dim); border: 1px dashed var(--border-focus);
     display: flex; flex-direction: column; gap: 6px;
+}
+
+/* ---- Loading & Empty states ---- */
+.anime-loading {
+    display: flex; justify-content: center; align-items: center;
+    padding: 48px 24px;
+}
+.anime-loading-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    color: var(--text-2); font-size: 0.88rem;
+}
+.anime-spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: anime-spin 0.8s linear infinite;
+}
+@keyframes anime-spin { to { transform: rotate(360deg); } }
+
+.anime-empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 56px 24px; text-align: center; gap: 10px;
+}
+.anime-empty-icon { font-size: 3rem; opacity: 0.5; }
+.anime-empty-title { font-size: 1.05rem; font-weight: 700; color: var(--text-1); }
+.anime-empty-sub { font-size: 0.82rem; color: var(--text-3); }
+
+/* ---- Episode count label ---- */
+.anime-episodes-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+.anime-episodes-count {
+    font-size: 0.72rem; color: var(--text-3); font-weight: 500;
 }
 
 /* ---- Player card ---- */
