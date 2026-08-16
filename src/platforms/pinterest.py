@@ -209,12 +209,7 @@ class PinterestDownloader(BaseDownloader):
         result["error"] = f"Scraping: {scraped.get('error', 'failed')}. yt-dlp: {fallback.get('error', 'failed')}"
         return result
 
-    def download_batch(self, urls: list, **kwargs) -> list:
-        """Download multiple Pinterest URLs."""
-        results = []
-        for url in urls:
-            results.append(self.download(url, **kwargs))
-        return results
+    # download_batch removed — use engine.download_batch for parallel downloads.
 
     def get_info(self, url: str) -> dict:
         """Get Pinterest content info."""

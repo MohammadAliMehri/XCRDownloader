@@ -24,8 +24,8 @@ import html
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlparse
+from src.network.client import fetch_text, fetch_json, post_json
 
 _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
        "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
@@ -43,38 +43,59 @@ _WP = {
     "miruro": {"base": "https://miruro.ro"},
 }
 
+# Allowed upstream hosts per provider (exact hostname or suffix match)
+# Can be overridden via config later.
+from src.config import config as _config
+_ALLOWED_ANIME_HOSTS = _config.anime_allowed_hosts
+
+def _is_allowed_anime_host(provider: str, url: str) -> bool:
+    """Check if the URL host is allowed for the given provider."""
+    if not provider or not url:
+        return False
+    host = urlparse(url).hostname or ""
+    if not host:
+        return False
+    host = host.lower()
+    allowed = _ALLOWED_ANIME_HOSTS.get(provider, [])
+    for a in allowed:
+        if host == a or host.endswith("." + a):
+            return True
+    return False
+
 
 # ---- HTTP helpers ---------------------------------------------------------
 
-def _fetch(url: str, headers: dict | None = None, timeout: int = 25) -> str:
-    req = Request(url, headers={
-        "User-Agent": _UA,
-        "Accept": "application/json, text/html, */*",
-        **(headers or {}),
-    })
-    with urlopen(req, timeout=timeout) as resp:
-        raw = resp.read()
-        # utf-8-sig: f2mc responses carry a UTF-8 BOM; the WP providers
-        # also sometimes emit one. Always decode with utf-8-sig so the BOM
-        # is stripped before json.loads() sees it.
-        return raw.decode("utf-8-sig", "replace")
+def _fetch(url: str, headers: dict | None = None, timeout: int = 25, provider: str | None = None) -> str:
+    """Fetch a URL with optional provider-based host allow-listing."""
+    if provider and not _is_allowed_anime_host(provider, url):
+        raise ValueError(f"Blocked URL for provider {provider}: {url}")
+    # Use the shared network client
+    allowed = _ALLOWED_ANIME_HOSTS.get(provider, []) if provider else []
+    text = fetch_text(url, headers=headers, timeout=timeout, allowed_hosts=allowed)
+    # For compatibility with utf-8-sig decoding, we need to strip BOM if present
+    # fetch_text returns str, so we can't easily strip BOM from bytes.
+    # However, the shared client decodes with utf-8 by default. We'll handle BOM by re-encoding?
+    # Since we control the client, we can modify it to handle BOM, but we'll keep it simple:
+    # The original code used decode('utf-8-sig') to strip BOM. We'll mimic by checking for BOM.
+    # But fetch_text returns a string, so BOM is already decoded. We'll strip it if present.
+    if text.startswith('\ufeff'):
+        text = text[1:]
+    return text
 
 
-def _json(url: str, headers: dict | None = None, timeout: int = 25) -> dict:
-    text = _fetch(url, headers=headers, timeout=timeout)
-    return json.loads(text)
+def _json(url: str, headers: dict | None = None, timeout: int = 25, provider: str | None = None) -> dict:
+    """Fetch JSON with provider validation."""
+    if provider and not _is_allowed_anime_host(provider, url):
+        raise ValueError(f"Blocked URL for provider {provider}: {url}")
+    allowed = _ALLOWED_ANIME_HOSTS.get(provider, []) if provider else []
+    return fetch_json(url, headers=headers, timeout=timeout, allowed_hosts=allowed)
 
 
-def _post_json(url: str, payload: dict, headers: dict | None = None) -> dict:
-    body = json.dumps(payload).encode()
-    req = Request(url, data=body, method="POST", headers={
-        "User-Agent": _UA,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        **(headers or {}),
-    })
-    with urlopen(req, timeout=25) as resp:
-        return json.loads(resp.read().decode("utf-8", "replace"))
+def _post_json(url: str, payload: dict, headers: dict | None = None, provider: str | None = None) -> dict:
+    if provider and not _is_allowed_anime_host(provider, url):
+        raise ValueError(f"Blocked URL for provider {provider}: {url}")
+    allowed = _ALLOWED_ANIME_HOSTS.get(provider, []) if provider else []
+    return post_json(url, payload, headers=headers, timeout=25, allowed_hosts=allowed)
 
 
 # ---- AniList (Yomi metadata) ---------------------------------------------
@@ -94,7 +115,8 @@ description(asHtml:false) status
 
 
 def _anilist(query: str, variables: dict) -> dict:
-    return _post_json("https://graphql.anilist.co", {"query": query, "variables": variables})
+    # AniList is called from yomi provider, so we pass provider='yomi' for validation.
+    return _post_json("https://graphql.anilist.co", {"query": query, "variables": variables}, provider="yomi")
 
 
 def _norm_anilist(media: dict) -> dict:
@@ -153,10 +175,10 @@ def _norm_wp(item: dict, provider: str, cover: str | None = None) -> dict:
     }
 
 
-def _fetch_og_image(page_url: str) -> str | None:
-    """Fetch a series page and extract the og:image meta tag."""
+def _fetch_og_image(page_url: str, provider: str | None = None) -> str | None:
+    """Fetch a series page and extract the og:image meta tag, with optional provider validation."""
     try:
-        text = _fetch(page_url, timeout=15)
+        text = _fetch(page_url, timeout=15, provider=provider)
         m = re.search(r'<meta\s+property=["\']og:image["\'][^\>]+content=["\']([^"\']+)["\']', text)
         if m:
             return m.group(1)
@@ -177,7 +199,7 @@ def _wp_search(provider: str, query: str, per_page: int = 15) -> list[dict]:
     # Film2Media exposes its series type with embedded thumbnails
     if provider == "f2mc":
         try:
-            items = _json(f"{base}/wp-json/wp/v2/series?search={quote(query)}&per_page={per_page}&_embed=1")
+            items = _json(f"{base}/wp-json/wp/v2/series?search={quote(query)}&per_page={per_page}&_embed=1", provider=provider)
             out = []
             for i in items:
                 fm = (i.get("_embedded") or {}).get("wp:featuredmedia") or [{}]
@@ -188,7 +210,7 @@ def _wp_search(provider: str, query: str, per_page: int = 15) -> list[dict]:
         except Exception:
             pass
     try:
-        items = _json(f"{base}/wp-json/wp/v2/search?search={quote(query)}&per_page={per_page}")
+        items = _json(f"{base}/wp-json/wp/v2/search?search={quote(query)}&per_page={per_page}", provider=provider)
     except Exception:
         return []
     return [_norm_wp(i, provider) for i in items]
@@ -232,7 +254,7 @@ def search_anime(query: str, provider: str = "all", page: int = 1) -> dict:
     def _try_og_cover(item: dict) -> dict:
         if item.get("provider") in ("aniwatchtv", "miruro", "f2mc") and not item.get("cover") and item.get("url"):
             item = dict(item)
-            item["cover"] = _fetch_og_image(item["url"])
+            item["cover"] = _fetch_og_image(item["url"], provider=item["provider"])
         return item
 
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -347,7 +369,7 @@ def _yomi_stream(anime_id: int, episode: int, dub: bool) -> dict:
     lang = "dub" if dub else "sub"
     page_url = f"https://megaplay.buzz/stream/ani/{anime_id}/{episode}/{lang}"
     try:
-        html_text = _fetch(page_url, headers={"Referer": "https://yomi.to/"})
+        html_text = _fetch(page_url, headers={"Referer": "https://yomi.to/"}, provider="yomi")
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "yomi", "player_url": page_url}
     m = re.search(r'data-id="(\d+)"', html_text)
@@ -359,6 +381,7 @@ def _yomi_stream(anime_id: int, episode: int, dub: bool) -> dict:
         data = _json(
             f"https://megaplay.buzz/stream/getSourcesNew?id={m.group(1)}",
             headers={"Referer": "https://megaplay.buzz/", "X-Requested-With": "XMLHttpRequest"},
+            provider="yomi"
         )
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "yomi", "player_url": page_url}
@@ -386,7 +409,7 @@ def _aniwatchtv_stream(episode_url: str) -> dict:
     loads a megaplay.buzz iframe. We resolve through that chain to get a
     direct megaplay embed URL for browser playback."""
     try:
-        html_text = _fetch(episode_url, headers={"Referer": "https://aniwatchtv.com.ro/"})
+        html_text = _fetch(episode_url, headers={"Referer": "https://aniwatchtv.com.ro/"}, provider="aniwatchtv")
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "aniwatchtv"}
 
@@ -403,7 +426,7 @@ def _aniwatchtv_stream(episode_url: str) -> dict:
 
     try:
         # Step 2: fetch the gogoanime player page; it carries a megaplay iframe
-        embed_html = _fetch(gogo_url, headers={"Referer": episode_url})
+        embed_html = _fetch(gogo_url, headers={"Referer": episode_url}, provider="aniwatchtv")
     except Exception:
         # Embed hosts like kwik.cx 403 non-browser requests. The gogoanime
         # player page itself is still directly iframe-able in a browser.
@@ -439,7 +462,7 @@ def _miruro_stream(episode_url: str) -> dict:
     src contains a base64-encoded query string that resolves to a megaplay
     iframe. We decode it and return the megaplay URL for browser playback."""
     try:
-        html_text = _fetch(episode_url, headers={"Referer": "https://miruro.ro/"})
+        html_text = _fetch(episode_url, headers={"Referer": "https://miruro.ro/"}, provider="miruro")
     except Exception as exc:
         return {"success": False, "error": str(exc)[:160], "provider": "miruro"}
 

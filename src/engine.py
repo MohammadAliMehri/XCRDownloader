@@ -11,6 +11,9 @@ from src.platforms.youtube import YouTubeDownloader
 from src.platforms.soundcloud import SoundCloudDownloader
 from src.platforms.generic import GenericDownloader
 from src.utils.helpers import detect_platform, extract_urls
+from src.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class DownloaderEngine:
@@ -18,41 +21,65 @@ class DownloaderEngine:
 
     def __init__(self, output_dir: str = "downloads"):
         self.output_dir = output_dir
-        self.downloaders = {
-            "instagram": InstagramDownloader(output_dir),
-            "tiktok": TikTokDownloader(output_dir),
-            "twitter": TwitterDownloader(output_dir),
-            "pinterest": PinterestDownloader(output_dir),
-            "youtube": YouTubeDownloader(output_dir),
-            "soundcloud": SoundCloudDownloader(output_dir),
-            "generic": GenericDownloader(output_dir),
+        # Lazy initialization: store class references, not instances.
+        self._downloader_classes = {
+            "instagram": InstagramDownloader,
+            "tiktok": TikTokDownloader,
+            "twitter": TwitterDownloader,
+            "pinterest": PinterestDownloader,
+            "youtube": YouTubeDownloader,
+            "soundcloud": SoundCloudDownloader,
+            "generic": GenericDownloader,
         }
+        self._downloaders = {}
+
+    def _get_downloader_instance(self, platform: str):
+        """Get or create a downloader instance for the platform."""
+        if platform not in self._downloaders:
+            cls = self._downloader_classes.get(platform)
+            if not cls:
+                # Fallback to generic
+                cls = self._downloader_classes["generic"]
+            # Instantiate with output_dir
+            self._downloaders[platform] = cls(self.output_dir)
+        return self._downloaders[platform]
 
     def get_downloader(self, url: str):
         """Get the appropriate downloader for a URL."""
         platform = detect_platform(url)
-        return self.downloaders.get(platform, self.downloaders["generic"]), platform
+        # Use the same fallback logic as detect()
+        if platform not in self._downloader_classes:
+            platform = "generic"
+        return self._get_downloader_instance(platform), platform
 
     def download(self, url: str, quality: str = "best", **kwargs) -> dict:
         """Download a single URL — auto-detects platform."""
         downloader, platform = self.get_downloader(url)
+        logger.info(f"Downloading {url} with platform {platform} quality {quality}")
         try:
             result = downloader.download(url, quality=quality, **kwargs)
         except Exception as e:
+            logger.error(f"Download error for {url}: {e}")
             result = {
                 "success": False,
                 "error": _humanize_error(str(e)),
                 "files": [],
                 "info": {},
             }
+        # If the provider returned a success=False dict with an error, humanize it
+        if not result.get("success") and result.get("error"):
+            result["error"] = _humanize_error(str(result["error"]))
+            logger.warning(f"Download failed for {url}: {result['error']}")
         result["platform"] = platform
         result["url"] = url
         return result
 
     def download_batch(self, urls: list, quality: str = "best",
                        max_workers: int = 3, **kwargs) -> list:
-        """Download multiple URLs with parallel execution."""
-        results = []
+        """Download multiple URLs with parallel execution, preserving input order."""
+        # Map each url to its index
+        url_to_index = {url: i for i, url in enumerate(urls)}
+        results_dict = {}
 
         def _dl(url):
             return self.download(url, quality=quality, **kwargs)
@@ -63,16 +90,19 @@ class DownloaderEngine:
                 url = futures[future]
                 try:
                     result = future.result()
-                    results.append(result)
+                    # Ensure result has url field
+                    result.setdefault("url", url)
+                    results_dict[url_to_index[url]] = result
                 except Exception as e:
-                    results.append({
+                    results_dict[url_to_index[url]] = {
                         "success": False,
                         "url": url,
                         "error": _humanize_error(str(e)),
                         "platform": detect_platform(url),
-                    })
+                    }
 
-        return results
+        # Reconstruct in original order
+        return [results_dict[i] for i in range(len(urls))]
 
     def download_text(self, text: str, **kwargs) -> list:
         """Extract all URLs from text and download them."""
@@ -95,11 +125,14 @@ class DownloaderEngine:
     def detect(self, url: str) -> dict:
         """Detect platform and return downloader info."""
         platform = detect_platform(url)
+        if platform not in self._downloader_classes:
+            platform = "generic"
+        downloader = self._get_downloader_instance(platform)
         return {
             "url": url,
             "platform": platform,
             "supported": True,
-            "handler": self.downloaders[platform].__class__.__name__,
+            "handler": downloader.__class__.__name__,
         }
 
 

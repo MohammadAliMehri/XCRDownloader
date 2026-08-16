@@ -45,11 +45,7 @@ class InstagramDownloader(BaseDownloader):
             f"{content_type}_%(title).80s_%(id)s.%(ext)s",
         )
 
-        format_spec = "best"
-        if quality == "hd":
-            format_spec = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-        elif quality == "sd":
-            format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+        format_spec = self._build_format_spec(quality, audio_only=False)
 
         opts = {
             "outtmpl": output_tpl,
@@ -66,12 +62,7 @@ class InstagramDownloader(BaseDownloader):
 
         return self._ytdlp_download(url, opts)
 
-    def download_batch(self, urls: list, **kwargs) -> list:
-        """Download multiple Instagram URLs."""
-        results = []
-        for url in urls:
-            results.append(self.download(url, **kwargs))
-        return results
+    # download_batch removed — use engine.download_batch for parallel downloads.
 
     def get_info(self, url: str) -> dict:
         """Get Instagram content info without downloading."""

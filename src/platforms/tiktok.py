@@ -74,22 +74,13 @@ class TikTokDownloader(BaseDownloader):
         )
 
         if audio_only:
-            format_spec = "bestaudio/best"
             opts = {
                 "outtmpl": output_tpl,
-                "format": format_spec,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "320",
-                }],
+                "format": "bestaudio/best",
+                "postprocessors": self._build_audio_postprocessors(),
             }
         else:
-            format_spec = "best"
-            if quality == "hd":
-                format_spec = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-            elif quality == "sd":
-                format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+            format_spec = self._build_format_spec(quality, audio_only=False)
 
             opts = {
                 "outtmpl": output_tpl,
@@ -120,12 +111,7 @@ class TikTokDownloader(BaseDownloader):
         """Extract audio only from TikTok video."""
         return self.download(url, audio_only=True, **kwargs)
 
-    def download_batch(self, urls: list, **kwargs) -> list:
-        """Download multiple TikTok URLs."""
-        results = []
-        for url in urls:
-            results.append(self.download(url, **kwargs))
-        return results
+    # download_batch removed — use engine.download_batch for parallel downloads.
 
     def get_info(self, url: str) -> dict:
         """Get TikTok content info without downloading."""

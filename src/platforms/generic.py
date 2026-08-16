@@ -23,19 +23,11 @@ class GenericDownloader(BaseDownloader):
             opts = {
                 "outtmpl": output_tpl.replace(".%(ext)s", ".mp3"),
                 "format": "bestaudio/best",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "320",
-                }],
+                "postprocessors": self._build_audio_postprocessors(),
                 "writeinfojson": False,
             }
         else:
-            format_spec = "best"
-            if quality == "hd":
-                format_spec = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-            elif quality == "sd":
-                format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+            format_spec = self._build_format_spec(quality, audio_only=False)
 
             opts = {
                 "outtmpl": output_tpl,

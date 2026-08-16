@@ -35,8 +35,14 @@ def _find_ffmpeg() -> str | None:
     return None
 
 
-# Resolve once at import time
-FFMPEG_DIR = _find_ffmpeg()
+# Lazy resolution of FFMPEG_DIR to avoid import-time filesystem probe
+_FFMPEG_DIR_CACHE = None
+
+def get_ffmpeg_dir() -> str | None:
+    global _FFMPEG_DIR_CACHE
+    if _FFMPEG_DIR_CACHE is None:
+        _FFMPEG_DIR_CACHE = _find_ffmpeg()
+    return _FFMPEG_DIR_CACHE
 
 
 class BaseDownloader:
@@ -46,7 +52,6 @@ class BaseDownloader:
         "quiet": True,
         "no_warnings": True,
         "extract_flat": False,
-        "nocheckcertificate": True,
         "ignoreerrors": False,
         "no_color": True,
         "prefer_free_formats": False,
@@ -59,12 +64,41 @@ class BaseDownloader:
 
     def _make_opts(self, extra: dict = None) -> dict:
         opts = dict(self.DEFAULT_OPTS)
-        # Inject ffmpeg location if found
-        if FFMPEG_DIR:
-            opts["ffmpeg_location"] = FFMPEG_DIR
+        # Inject ffmpeg location if found (lazy)
+        ffmpeg_dir = get_ffmpeg_dir()
+        if ffmpeg_dir:
+            opts["ffmpeg_location"] = ffmpeg_dir
         if extra:
             opts.update(extra)
         return opts
+
+    def _build_format_spec(self, quality: str, audio_only: bool = False) -> str:
+        """Build yt-dlp format spec string."""
+        if audio_only:
+            return "bestaudio/best"
+        if quality == "hd":
+            return "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+        if quality == "sd":
+            return "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+        return "best"
+
+    def _build_audio_postprocessors(self) -> list:
+        """Build the audio postprocessor chain (MP3 320k with metadata and thumbnail)."""
+        return [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "320",
+            },
+            {
+                "key": "FFmpegMetadata",
+                "add_metadata": True,
+            },
+            {
+                "key": "EmbedThumbnail",
+                "already_have_thumbnail": False,
+            },
+        ]
 
     def _ytdlp_download(self, url: str, opts: dict = None) -> dict:
         """Download using yt-dlp and return result info."""

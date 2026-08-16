@@ -95,11 +95,7 @@ class YouTubeDownloader(BaseDownloader):
             "%(title).100s_%(id)s.%(ext)s",
         )
 
-        format_spec = "best"
-        if quality == "hd":
-            format_spec = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-        elif quality == "sd":
-            format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+        format_spec = self._build_format_spec(quality, audio_only=False)
 
         base = {
             "outtmpl": output_tpl,
@@ -134,21 +130,7 @@ class YouTubeDownloader(BaseDownloader):
         base = {
             "outtmpl": output_tpl,
             "format": "bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "320",
-                },
-                {
-                    "key": "FFmpegMetadata",
-                    "add_metadata": True,
-                },
-                {
-                    "key": "EmbedThumbnail",
-                    "already_have_thumbnail": False,
-                },
-            ],
+            "postprocessors": self._build_audio_postprocessors(),
             "writethumbnail": True,
             "writeinfojson": False,
             "keepvideo": False,

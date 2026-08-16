@@ -26,21 +26,7 @@ class SoundCloudDownloader(BaseDownloader):
         opts = {
             "outtmpl": output_tpl,
             "format": "bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "320",
-                },
-                {
-                    "key": "FFmpegMetadata",
-                    "add_metadata": True,
-                },
-                {
-                    "key": "EmbedThumbnail",
-                    "already_have_thumbnail": False,
-                },
-            ],
+            "postprocessors": self._build_audio_postprocessors(),
             "writethumbnail": True,
             "writeinfojson": False,
             "keepvideo": False,

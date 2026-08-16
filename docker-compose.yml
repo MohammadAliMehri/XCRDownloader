@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"  # obsolete, removed
 
 services:
   xcrdownloader:
@@ -10,3 +10,14 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+    # Run as non-root user (matches Dockerfile)
+    user: "1000:1000"
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    # Graceful shutdown
+    stop_signal: SIGINT

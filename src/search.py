@@ -40,7 +40,7 @@ def _yt_extract_info(url: str, extra_opts: dict | None = None) -> dict | None:
     """Extract with rotating clients; returns None when YouTube blocks access."""
     base = {
         "quiet": True, "no_warnings": True, "skip_download": True,
-        "no_color": True, "nocheckcertificate": True, "extract_flat": False,
+        "no_color": True, "extract_flat": False,
     }
     if extra_opts:
         base.update(extra_opts)
@@ -289,7 +289,7 @@ def get_stream_url(source_url: str, want_video: bool = False, title: str = "", a
     # URLs resolve through the YouTube extractor but remain labeled as music.
     if "music.youtube.com" in source_url:
         source_url = source_url.replace("music.youtube.com", "www.youtube.com")
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "bestaudio/best", "nocheckcertificate": True}
+    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "bestaudio/best"}
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(source_url, download=False)

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/XCRDownloader-v1.7.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
+  <img src="https://img.shields.io/badge/XCRDownloader-v1.8.0-6c5ce7?style=for-the-badge" alt="XCRDownloader">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Sites-1800+-ff6b6b?style=for-the-badge" alt="Sites">
@@ -26,9 +26,10 @@
 
 ## ✨ Features
 
+### Core
 - 🚀 **No API keys required** — works out of the box, completely free
 - ▶️ **YouTube** — Videos, Music, Playlists, Shorts (with preview)
-- 🛡️ **YouTube anti-bot resilience** — modern player clients (`android_vr`, `web_safari`) + automatic client rotation + optional TLS impersonation, so downloads keep working when YouTube blocks a client
+- 🛡️ **YouTube anti-bot resilience** — modern player clients + automatic client rotation + optional TLS impersonation
 - 🎶 **YouTube Music** — Auto-converts to high-quality MP3
 - 🔊 **SoundCloud** — Tracks, Playlists, Albums (auto MP3)
 - 📸 **Instagram** — Reels, Stories, Posts, IGTV
@@ -43,13 +44,28 @@
 - 🐳 **Docker** — ready to deploy
 - ⚡ **Parallel downloads** — configurable worker threads
 - 🎧 **Audio extraction** — extract MP3 from any video
-- 🎵 **Music Search** — search across YouTube, YouTube Music & SoundCloud in one query, no API keys
+- 🎵 **Music Search** — search across YouTube, YouTube Music & SoundCloud in one query
 - ▶️ **Dedicated Player** — play tracks, videos, and podcasts with queue controls
 - 🎬 **Anime Search & Stream** — search anime across Yomi, AniWatchTV, Film2Media & Miruro; watch with subtitles (Sub/Dub)
 - 📺 **HLS streaming** — server-side media relay plays HLS streams in any browser (hls.js), with subtitle tracks
 - 🛠️ **FFmpeg integration** — merge and convert downloads with browser-safe online playback
 - 📊 **Quality selection** — Best, HD (1080p), SD (480p)
 - 🛡️ **Error handling** — human-readable error messages
+
+### Security & Reliability (v1.8.0)
+- 🔒 **Media relay SSRF protection** — strict host allow‑list, manual redirect validation, private IP blocking, DNS-rebinding mitigation
+- 🔒 **Anime SSRF protection** — per‑provider allow‑lists for all upstream fetches
+- 🔒 **TLS hardening** — removed global certificate verification bypass; scoped only where needed
+- 🔒 **Bounded job manager** — in‑memory job store with TTL, size cap, and thread‑safe operations
+- 🔒 **Configurable timeouts** — connect and read timeouts for all network calls
+
+### Architecture & Developer Experience (v1.8.0)
+- 📦 **Proper packaging** — `pyproject.toml` with `pip install -e .` and `xcrdownloader` CLI command
+- 🧩 **Modularised codebase** — split into `src/api/`, `src/services/`, `src/network/`, `src/anime/`, `src/relay/`
+- 🧪 **Unit tests** — 23 passing tests for security, engine, and providers
+- 📝 **Structured logging** — INFO/DEBUG/WARNING/ERROR with configurable levels
+- ⚙️ **Centralised configuration** — environment‑based settings with `.env.example`
+- 🐳 **Docker hardened** — non‑root user, healthcheck, proper signal handling, `.dockerignore`
 
 ## 🚀 Quick Start
 
@@ -118,9 +134,9 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-## 🔧 YouTube Reliability (v1.2.0)
+## 🔧 YouTube Reliability (v1.2.0+)
 
-YouTube periodically blocks yt-dlp's default download clients, causing `HTTP Error 403` or `No video formats found!`. XCRDownloader v1.2.0 handles this with a **layered strategy**:
+YouTube periodically blocks yt-dlp's default download clients, causing `HTTP Error 403` or `No video formats found!`. XCRDownloader handles this with a **layered strategy**:
 
 1. **Modern player clients** — uses YouTube's current recommended clients (`android_vr`, `web_safari`) instead of the deprecated `web`/`mweb` set.
 2. **Automatic client rotation** — if the primary clients fail, it retries with `tv_downgraded`, then `ios`/`android`, then legacy clients, until one succeeds.
@@ -281,32 +297,55 @@ XCRDownloader/
 ├── cli.py                 # CLI entry point (+ auto Web UI launcher)
 ├── run.py                 # Quick start script
 ├── app.py                 # WSGI entry point
+├── pyproject.toml         # Packaging and project metadata
 ├── requirements.txt       # Python dependencies
 ├── setup.bat              # Windows automated setup
 ├── setup.sh               # Linux/macOS automated setup
-├── Dockerfile             # Docker build
-├── docker-compose.yml     # Docker Compose
+├── Dockerfile             # Docker build (hardened)
+├── docker-compose.yml     # Docker Compose (with healthcheck)
+├── .env.example           # Environment configuration template
 ├── src/
+│   ├── api/               # API blueprints (download, search, anime)
+│   │   ├── download.py
+│   │   ├── search.py
+│   │   └── anime.py
+│   ├── anime/             # Anime providers (extracted)
+│   │   ├── base.py
+│   │   ├── registry.py
+│   │   ├── yomi.py
+│   │   ├── aniwatchtv.py
+│   │   ├── miruro.py
+│   │   ├── film2media.py
+│   │   └── _shared.py
+│   ├── network/           # Shared HTTP client with retries & validation
+│   │   └── client.py
+│   ├── services/          # Job manager, logging, config
+│   │   └── jobs.py
+│   ├── relay.py           # HLS media relay (SSRF hardened)
 │   ├── engine.py          # Download engine + error humanizer
 │   ├── search.py          # YouTube + YouTube Music + SoundCloud search/player
-│   ├── anime.py           # Anime search + streaming (Yomi/MegaPlay, AniWatchTV, Film2Media, Miruro)
-│   ├── web.py             # Flask Web UI backend (+ search/stream/download-track/anime APIs + media relay)
-│   ├── platforms/
+│   ├── web.py             # Flask application factory
+│   ├── config.py          # Centralised configuration
+│   ├── logging.py         # Structured logging setup
+│   ├── platforms/         # Platform-specific downloaders
 │   │   ├── base.py        # Base downloader (yt-dlp)
-│   │   ├── instagram.py   # Instagram handler
-│   │   ├── tiktok.py      # TikTok handler
-│   │   ├── twitter.py     # X/Twitter handler
-│   │   ├── pinterest.py   # Pinterest handler (custom scraper)
-│   │   ├── youtube.py     # YouTube + YouTube Music handler
-│   │   ├── soundcloud.py  # SoundCloud handler
-│   │   └── generic.py     # Generic (1800+ sites)
+│   │   ├── instagram.py
+│   │   ├── tiktok.py
+│   │   ├── twitter.py
+│   │   ├── pinterest.py
+│   │   ├── youtube.py
+│   │   ├── soundcloud.py
+│   │   └── generic.py
 │   └── utils/
 │       └── helpers.py     # Platform detection, formatting
 ├── templates/
 │   └── index.html         # Web UI template
 ├── static/
 │   ├── css/style.css      # Dark theme + preview card
-│   └── js/app.js          # Frontend + auto-preview
+│   └── js/app.js          # Frontend + auto-preview (XSS hardened)
+├── tests/                 # Unit tests (23 passing)
+│   ├── test_engine.py
+│   └── test_security.py
 └── downloads/             # Downloaded files (gitignored)
 ```
 
@@ -326,15 +365,43 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## 🆕 Changelog
 
+### v1.8.0 — Security, Architecture & Packaging Overhaul
+- **Security hardening**
+  - Media relay SSRF protection: strict host allow-list, manual redirect validation, private IP blocking, DNS-rebinding mitigation.
+  - Anime SSRF protection: per-provider allow-lists for all upstream fetches.
+  - Removed global `nocheckcertificate` from base downloader and search; scoped exceptions only where needed.
+  - Frontend XSS fixes: `esc()` used everywhere (error messages, history, search results, anime cards).
+- **Architecture improvements**
+  - Lazy provider initialisation in engine to isolate broken providers.
+  - Fixed `detect()` fallback to be consistent with `get_downloader()`.
+  - Batch download preserves input order.
+  - Error normalisation applied to provider-returned errors.
+- **Job management**
+  - Bounded in-memory job store with TTL, size cap, and thread-safe operations.
+- **Configuration**
+  - Centralised config system with `.env.example` and environment overrides.
+- **Networking**
+  - Shared HTTP client with retries, redirect validation, and host allow-listing.
+- **Anime provider extraction**
+  - Provider interface with registry; Yomi/AniWatchTV/Miruro/Film2Media extracted to separate modules.
+- **Platform de-duplication**
+  - Common format spec and audio postprocessors moved to base; removed duplicate download_batch methods.
+- **API splitting**
+  - Blueprints for download, search, anime with consistent JSON error responses.
+- **Logging**
+  - Structured logging with INFO/DEBUG/WARNING/ERROR levels.
+- **Packaging**
+  - Proper `pyproject.toml`, `pip install -e .` support, `xcrdownloader` CLI command.
+- **Docker hardening**
+  - Non-root user, healthcheck, proper signal handling, `.dockerignore`.
+- **Testing**
+  - 23 unit tests for security, engine, providers.
+
 ### v1.7.0 — Provider & player hardening
-- **Anime player**
-  - Miruro: fixed episode detection for slug-suffixed series (`-5rn3`, `-93rg`, …) — episode lists now load for every Miruro series, and stream URLs are built from the clean slug (`/solo-leveling-episode-1/`) instead of 404ing.
-  - AniWatchTV: resolves the gogoanime → megaplay iframe chain; when the site uses other embed hosts (kwik.cx, streamwish), the player falls back to the embeddable gogoanime player instead of failing.
-  - Yomi: full Sub/Dub m3u8 + subtitle relay verified end-to-end.
-  - Covers: missing posters are enriched from the series page `og:image` (capped for speed); hover play-overlay, episode counts, loading/empty states added to the UI.
-- **Music search** — YouTube results no longer include channel/playlist tabs (`YoutubeTab`/`YoutubePlaylist` entries with 24-char channel IDs) that produced broken `watch?v=` links.
-- **Downloaders** — yt-dlp kept at 2026.7.4 with `android_vr, web_safari` client rotation + curl_cffi TLS impersonation; TikTok UA rotation, SoundCloud/Instagram/etc. verified.
-- **Media relay** — HLS playlists fully rewritten through the relay; TikTok-CDN 252-byte segment wrapper stripping verified live.
+- **Anime player** — Miruro episode detection fix, AniWatchTV embed fallback, Yomi Sub/Dub verified, cover enrichment.
+- **Music search** — YouTube results no longer include channel/playlist tabs.
+- **Downloaders** — yt-dlp 2026.7.4 with client rotation + curl_cffi; TikTok UA rotation.
+- **Media relay** — HLS playlist rewriting and 252-byte segment wrapper stripping verified.
 
 ---
 

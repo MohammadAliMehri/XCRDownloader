@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function showError(msg) {
         resultsSection.style.display = 'block';
-        resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Error</div><div class="meta" style="color:var(--error)">${msg}</div></div></div>`;
+        resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Error</div><div class="meta" style="color:var(--error)">${esc(msg)}</div></div></div>`;
         resetBtns();
     }
     function showProgress(msg) { progressSection.style.display='block'; progressBar.style.width='0%'; progressBar.style.background=''; progressStatus.textContent=msg; }
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = j.platform||'generic';
                 const sc = j.status==='completed'?'completed':j.status==='failed'?'failed':'downloading';
                 const url = j.url || (j.urls?`${j.urls.length} URLs`:'');
-                historyList.innerHTML += `<div class="history-item"><span class="history-platform">${PLATFORM_ICONS[p]||'🌐'}</span><div class="history-info"><div class="url" title="${url}">${url}</div><div class="time">${j.created_at||''}</div></div><span class="history-status ${sc}">${j.status}</span></div>`;
+                historyList.innerHTML += `<div class="history-item"><span class="history-platform">${PLATFORM_ICONS[p]||'🌐'}</span><div class="history-info"><div class="url" title="${esc(url)}">${esc(url)}</div><div class="time">${esc(j.created_at||'')}</div></div><span class="history-status ${sc}">${esc(j.status)}</span></div>`;
             }
         } catch {}
     }
@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 searchStatus.innerHTML = '';
                 document.getElementById('search-empty').style.display = 'none';
-                if (data.error) { searchStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
+                if (data.error) { searchStatus.innerHTML = `<span class="error">❌ ${esc(data.error)}</span>`; return; }
                 const results = data.results || [];
                 if (!results.length && page === 0) {
                     document.getElementById('search-empty').style.display = 'flex';
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterRender();
                 searchLoadMore.style.display = data.has_more ? 'block' : 'none';
             })
-            .catch(e => { searchStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`; });
+            .catch(e => { searchStatus.innerHTML = `<span class="error">❌ ${esc(e.message)}</span>`; });
     }
 
     function rowEl(r) {
@@ -556,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(data => {
                 document.getElementById('anime-results-loading').style.display = 'none';
-                if (data.error) { animeStatus.innerHTML = `<span class="error">❌ ${data.error}</span>`; return; }
+                if (data.error) { animeStatus.innerHTML = `<span class="error">❌ ${esc(data.error)}</span>`; return; }
                 const rs = data.results || [];
                 if (!rs.length) {
                     animeResults.innerHTML = '';
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(e => {
                 document.getElementById('anime-results-loading').style.display = 'none';
-                animeStatus.innerHTML = `<span class="error">❌ ${e.message}</span>`;
+                animeStatus.innerHTML = `<span class="error">❌ ${esc(e.message)}</span>`;
             });
     }
 

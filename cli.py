@@ -10,14 +10,16 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# Add project root to path
-_here = os.path.dirname(os.path.abspath(__file__))
-if _here not in sys.path:
-    sys.path.insert(0, _here)
+# (sys.path hack removed — packaging handles imports)
 
 from src.engine import DownloaderEngine
 from src.search import search_music
 from src.utils.helpers import print_banner, format_filesize, detect_platform
+from src.config import config
+from src.logging import setup_logging
+
+# Setup logging before anything else
+setup_logging()
 
 
 def main():
@@ -51,14 +53,14 @@ Examples:
     parser.add_argument("--audio", action="store_true", help="Extract audio only (MP3)")
     parser.add_argument("--info", action="store_true", help="Get info/preview without downloading")
     parser.add_argument("--detect", action="store_true", help="Detect platform only")
-    parser.add_argument("--workers", type=int, default=3,
-                        help="Parallel download workers (default: 3)")
+    parser.add_argument("--workers", type=int, default=config.max_workers,
+                        help=f"Parallel download workers (default: {config.max_workers})")
     parser.add_argument("--web", action="store_true", help="Launch web UI")
-    parser.add_argument("--port", type=int, default=8080, help="Web UI port (default: 8080)")
-    parser.add_argument("--host", default="0.0.0.0", help="Web UI host (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=config.server_port, help=f"Web UI port (default: {config.server_port})")
+    parser.add_argument("--host", default=config.server_host, help="Web UI host (default: 127.0.0.1)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--search", action="store_true", help="Search YouTube, YouTube Music, and SoundCloud")
-    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.7.0")
+    parser.add_argument("-v", "--version", action="version", version="XCRDownloader v1.8.0")
 
     args = parser.parse_args()
 
@@ -101,7 +103,7 @@ Examples:
         # Open browser after a short delay
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
         try:
-            app.run(host=host, port=port, debug=False)
+            app.run(host=host, port=port, debug=config.debug)
         except KeyboardInterrupt:
             print("\n  👋 Shutting down...")
         return

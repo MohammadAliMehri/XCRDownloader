@@ -1,0 +1,45 @@
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Downloads (mounted volume)
+downloads/
+
+# Documentation (optional)
+docs/
+*.md
+
+# Test files
+tests/
+test_*.py
+*.pytest_cache
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+
+# Node modules (if any)
+node_modules/
+
+# OS junk
+.DS_Store
+Thumbs.db
