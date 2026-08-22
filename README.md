@@ -35,7 +35,7 @@
 - 📸 **Instagram** — Reels, Stories, Posts, IGTV
 - 🎵 **TikTok** — Videos without watermark, audio extraction
 - 🐦 **X/Twitter** — Videos, images, GIFs
-- 📌 **Pinterest** — Videos, images, GIFs
+- 📌 **Pinterest** — Videos, images, GIFs (improved video extraction)
 - 🌐 **1800+ sites** — Reddit, Facebook, Vimeo, and more via yt-dlp
 - 🔍 **Auto Preview** — paste a URL → see title, thumbnail, duration, views
 - 🎯 **Batch download** — download multiple URLs at once
@@ -287,7 +287,7 @@ docker-compose up -d
 | 📸 Instagram | Reels, Stories, Posts, IGTV | |
 | 🎵 TikTok | Videos (no watermark), Audio | |
 | 🐦 X/Twitter | Videos, Images, GIFs | |
-| 📌 Pinterest | Videos, Images, GIFs | |
+| 📌 Pinterest | Videos, Images, GIFs (improved extraction) | |
 | 🌐 1800+ more | YouTube, Reddit, Facebook... | |
 
 ## 📁 Project Structure
@@ -396,6 +396,9 @@ MIT License — see [LICENSE](LICENSE) for details.
   - Non-root user, healthcheck, proper signal handling, `.dockerignore`.
 - **Testing**
   - 23 unit tests for security, engine, providers.
+
+### v1.8.1 — Pinterest video extraction fix
+- **Pinterest**: improved video extraction using relay payloads and `__PWS_DATA__` parsing, fixing "No video formats found" errors.
 
 ### v1.7.0 — Provider & player hardening
 - **Anime player** — Miruro episode detection fix, AniWatchTV embed fallback, Yomi Sub/Dub verified, cover enrichment.
