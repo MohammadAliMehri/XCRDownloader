@@ -13,6 +13,10 @@ class Config:
     server_host: str = "127.0.0.1"
     server_port: int = 8080
     debug: bool = False
+    cors_origins: List[str] = field(default_factory=lambda: [
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+    ])
 
     # Downloads
     download_dir: str = "downloads"
@@ -80,6 +84,10 @@ class Config:
             server_host=get_str("SERVER_HOST", "127.0.0.1"),
             server_port=get_int("SERVER_PORT", 8080),
             debug=get_bool("DEBUG", False),
+            cors_origins=get_list("CORS_ORIGINS", [
+                "http://127.0.0.1:8080",
+                "http://localhost:8080",
+            ]),
             download_dir=get_str("DOWNLOAD_DIR", "downloads"),
             max_workers=get_int("MAX_WORKERS", 3),
             job_ttl_seconds=get_int("JOB_TTL_SECONDS", 3600),

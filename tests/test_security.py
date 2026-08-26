@@ -1,6 +1,7 @@
 """Regression tests for security fixes (relay SSRF, anime SSRF, TLS)."""
 import pytest
 from src.web import _media_url_allowed, _safe_fetch_url, _is_allowed_relay_host
+from src.utils.helpers import is_public_http_url
 from src.anime import _is_allowed_anime_host, _ALLOWED_ANIME_HOSTS
 
 class TestRelayHostAllowlist:
@@ -28,6 +29,13 @@ class TestMediaUrlAllowed:
     def test_private_ip(self):
         assert _media_url_allowed("http://127.0.0.1/") is False
         assert _media_url_allowed("http://10.0.0.1/") is False
+
+
+class TestPublicSourceUrl:
+    def test_rejects_non_http_and_private_targets(self):
+        assert is_public_http_url("ftp://example.com/file") is False
+        assert is_public_http_url("http://127.0.0.1/") is False
+        assert is_public_http_url("http://localhost/") is False
 
 class TestAnimeHostAllowlist:
     def test_yomi_allowed(self):

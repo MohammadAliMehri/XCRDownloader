@@ -147,6 +147,7 @@ All settings are via environment variables (prefixed `XCR_`). See `.env.example`
 
 Key settings:
 - `XCR_SERVER_HOST`, `XCR_SERVER_PORT`, `XCR_DEBUG`
+- `XCR_CORS_ORIGINS` (comma-separated trusted frontend origins; defaults to the local UI origins)
 - `XCR_DOWNLOAD_DIR`, `XCR_MAX_WORKERS`
 - `XCR_JOB_TTL_SECONDS`, `XCR_MAX_JOBS`
 - `XCR_CONNECT_TIMEOUT`, `XCR_READ_TIMEOUT`

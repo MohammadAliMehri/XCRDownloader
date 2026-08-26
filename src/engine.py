@@ -77,24 +77,25 @@ class DownloaderEngine:
     def download_batch(self, urls: list, quality: str = "best",
                        max_workers: int = 3, **kwargs) -> list:
         """Download multiple URLs with parallel execution, preserving input order."""
-        # Map each url to its index
-        url_to_index = {url: i for i, url in enumerate(urls)}
         results_dict = {}
 
-        def _dl(url):
+        def _dl(index: int, url: str):
             return self.download(url, quality=quality, **kwargs)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(_dl, url): url for url in urls}
+            futures = {
+                executor.submit(_dl, index, url): (index, url)
+                for index, url in enumerate(urls)
+            }
             for future in concurrent.futures.as_completed(futures):
-                url = futures[future]
+                index, url = futures[future]
                 try:
                     result = future.result()
                     # Ensure result has url field
                     result.setdefault("url", url)
-                    results_dict[url_to_index[url]] = result
+                    results_dict[index] = result
                 except Exception as e:
-                    results_dict[url_to_index[url]] = {
+                    results_dict[index] = {
                         "success": False,
                         "url": url,
                         "error": _humanize_error(str(e)),

@@ -1,6 +1,8 @@
 """Utility helpers for XCRDownloader."""
 import os
 import re
+import ipaddress
+import socket
 import unicodedata
 from urllib.parse import urlparse
 
@@ -45,6 +47,20 @@ def detect_platform(url: str) -> str:
             if re.search(pattern, url_lower):
                 return platform
     return "generic"
+
+
+def is_public_http_url(url: str) -> bool:
+    """Return whether a URL resolves only to globally routable HTTP(S) hosts."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        addresses = socket.getaddrinfo(parsed.hostname, None, type=socket.SOCK_STREAM)
+        return bool(addresses) and all(
+            ipaddress.ip_address(address[4][0]).is_global for address in addresses
+        )
+    except (OSError, ValueError):
+        return False
 
 
 def sanitize_filename(name: str, max_len: int = 200) -> str:

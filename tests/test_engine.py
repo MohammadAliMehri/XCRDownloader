@@ -38,6 +38,20 @@ def test_batch_ordering():
     assert [r["url"] for r in results] == urls
     engine.download = original_download
 
+
+def test_batch_ordering_preserves_duplicate_urls(monkeypatch):
+    engine = DownloaderEngine()
+    urls = ["https://a.com", "https://b.com", "https://a.com"]
+
+    def fake_download(url, **kwargs):
+        return {"success": True, "url": url, "platform": "generic", "files": []}
+
+    monkeypatch.setattr(engine, "download", fake_download)
+
+    results = engine.download_batch(urls)
+
+    assert [result["url"] for result in results] == urls
+
 def test_error_normalization():
     """Ensure errors are humanized."""
     engine = DownloaderEngine()

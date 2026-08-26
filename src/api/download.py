@@ -1,7 +1,7 @@
 """Downloader API routes."""
 import threading
 from flask import Blueprint, request, jsonify, current_app
-from src.utils.helpers import detect_platform
+from src.utils.helpers import detect_platform, is_public_http_url
 from src.config import config
 from src.logging import get_logger
 
@@ -12,22 +12,30 @@ download_bp = Blueprint('download', __name__, url_prefix='/api')
 def error_response(message, status=400, code=None):
     return jsonify({"success": False, "error": {"code": code or "error", "message": message}}), status
 
+
+def request_data():
+    return request.get_json(silent=True) or {}
+
+
+def valid_source_url(url):
+    return isinstance(url, str) and len(url) <= 2_000 and is_public_http_url(url)
+
 @download_bp.route('/detect', methods=['POST'])
 def api_detect():
-    data = request.get_json(force=True)
+    data = request_data()
     url = data.get('url', '').strip()
-    if not url:
-        return error_response('No URL provided', 400)
+    if not valid_source_url(url):
+        return error_response('Provide a public HTTP(S) URL', 400)
     engine = current_app.config['engine']
     result = engine.detect(url)
     return jsonify(result)
 
 @download_bp.route('/preview', methods=['POST'])
 def api_preview():
-    data = request.get_json(force=True)
+    data = request_data()
     url = data.get('url', '').strip()
-    if not url:
-        return error_response('No URL provided', 400)
+    if not valid_source_url(url):
+        return error_response('Provide a public HTTP(S) URL', 400)
     engine = current_app.config['engine']
     result = engine.get_info(url)
     out = {
@@ -55,22 +63,22 @@ def api_preview():
 
 @download_bp.route('/info', methods=['POST'])
 def api_info():
-    data = request.get_json(force=True)
+    data = request_data()
     url = data.get('url', '').strip()
-    if not url:
-        return error_response('No URL provided', 400)
+    if not valid_source_url(url):
+        return error_response('Provide a public HTTP(S) URL', 400)
     engine = current_app.config['engine']
     result = engine.get_info(url)
     return jsonify(result)
 
 @download_bp.route('/download', methods=['POST'])
 def api_download():
-    data = request.get_json(force=True)
+    data = request_data()
     url = data.get('url', '').strip()
     quality = data.get('quality', 'best')
     audio_only = data.get('audio_only', False)
-    if not url:
-        return error_response('No URL provided', 400)
+    if not valid_source_url(url):
+        return error_response('Provide a public HTTP(S) URL', 400)
 
     job_manager = current_app.config['job_manager']
     engine = current_app.config['engine']
@@ -102,12 +110,16 @@ def api_download():
 
 @download_bp.route('/batch', methods=['POST'])
 def api_batch():
-    data = request.get_json(force=True)
+    data = request_data()
     urls = data.get('urls', [])
     quality = data.get('quality', 'best')
     audio_only = data.get('audio_only', False)
-    if not urls:
+    if not isinstance(urls, list) or not urls:
         return error_response('No URLs provided', 400)
+    if len(urls) > 50:
+        return error_response('A batch can contain at most 50 URLs', 400)
+    if not all(valid_source_url(url) for url in urls):
+        return error_response('Every URL must be a public HTTP(S) URL', 400)
 
     job_manager = current_app.config['job_manager']
     engine = current_app.config['engine']
@@ -168,12 +180,12 @@ def api_stats():
 
 @download_bp.route('/download-track', methods=['POST'])
 def api_download_track():
-    data = request.get_json(force=True)
+    data = request_data()
     source_url = data.get('source_url', '').strip()
     title = data.get('title', 'Unknown')
     artist = data.get('artist', '')
-    if not source_url:
-        return error_response('No source URL provided', 400)
+    if not valid_source_url(source_url):
+        return error_response('Provide a public HTTP(S) source URL', 400)
 
     from src.search import resolve_for_download
     download_url = resolve_for_download(source_url)
