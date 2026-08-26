@@ -55,7 +55,8 @@ class DownloaderEngine:
     def download(self, url: str, quality: str = "best", **kwargs) -> dict:
         """Download a single URL — auto-detects platform."""
         downloader, platform = self.get_downloader(url)
-        logger.info(f"Downloading {url} with platform {platform} quality {quality}")
+        logger.info(
+            f"Downloading {url} with platform {platform} quality {quality}")
         try:
             result = downloader.download(url, quality=quality, **kwargs)
         except Exception as e:
@@ -118,7 +119,8 @@ class DownloaderEngine:
         try:
             result = downloader.get_info(url)
         except Exception as e:
-            result = {"success": False, "error": _humanize_error(str(e)), "info": {}}
+            result = {"success": False,
+                      "error": _humanize_error(str(e)), "info": {}}
         result["platform"] = platform
         result["url"] = url
         return result

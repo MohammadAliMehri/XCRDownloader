@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+
 @dataclass
 class Config:
     # Server
@@ -107,6 +108,7 @@ class Config:
             log_level=get_str("LOG_LEVEL", "INFO"),
             # Anime hosts are more complex; keep defaults for now.
         )
+
 
 # Global configuration instance
 config = Config.from_env()

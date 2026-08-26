@@ -2,6 +2,7 @@
 import pytest
 from src.engine import DownloaderEngine, _humanize_error
 
+
 def test_detect_fallback():
     engine = DownloaderEngine()
     # Unknown platform should fall back to generic
@@ -9,11 +10,14 @@ def test_detect_fallback():
     assert result["platform"] == "generic"
     assert result["handler"] == "GenericDownloader"
 
+
 def test_get_downloader_fallback():
     engine = DownloaderEngine()
-    downloader, platform = engine.get_downloader("https://unknown.example.com/video")
+    downloader, platform = engine.get_downloader(
+        "https://unknown.example.com/video")
     assert platform == "generic"
     assert downloader.__class__.__name__ == "GenericDownloader"
+
 
 def test_detect_consistency():
     """Ensure detect() and get_downloader() use the same resolution."""
@@ -24,12 +28,14 @@ def test_detect_consistency():
     assert platform == det["platform"]
     assert downloader.__class__.__name__ == det["handler"]
 
+
 def test_batch_ordering():
     engine = DownloaderEngine()
     urls = ["https://a.com", "https://b.com", "https://c.com"]
     # We'll mock the download method to return success immediately without real downloads
     # For this test, we monkeypatch engine.download to return a dummy result.
     original_download = engine.download
+
     def fake_download(url, **kwargs):
         return {"success": True, "url": url, "platform": "generic", "files": []}
     engine.download = fake_download
@@ -52,6 +58,7 @@ def test_batch_ordering_preserves_duplicate_urls(monkeypatch):
 
     assert [result["url"] for result in results] == urls
 
+
 def test_error_normalization():
     """Ensure errors are humanized."""
     engine = DownloaderEngine()
@@ -63,6 +70,7 @@ def test_error_normalization():
     # Ensure fallback truncation works
     long = "x" * 500
     assert len(_humanize_error(long)) <= 300
+
 
 def test_lazy_initialization():
     """A broken provider should not break engine construction."""
@@ -76,9 +84,12 @@ def test_lazy_initialization():
 
 # Additional test: test that humanize is applied to provider returned errors.
 # We'll mock a provider to return a failure dict with an error string.
+
+
 def test_humanize_on_provider_error(monkeypatch):
     engine = DownloaderEngine()
     # Mock a provider's download to return a failure with raw error
+
     class FakeProvider:
         def download(self, url, **kwargs):
             return {"success": False, "error": "HTTP Error 403", "files": []}

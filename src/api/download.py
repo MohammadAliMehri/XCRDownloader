@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 
 download_bp = Blueprint('download', __name__, url_prefix='/api')
 
+
 def error_response(message, status=400, code=None):
     return jsonify({"success": False, "error": {"code": code or "error", "message": message}}), status
 
@@ -20,6 +21,7 @@ def request_data():
 def valid_source_url(url):
     return isinstance(url, str) and len(url) <= 2_000 and is_public_http_url(url)
 
+
 @download_bp.route('/detect', methods=['POST'])
 def api_detect():
     data = request_data()
@@ -29,6 +31,7 @@ def api_detect():
     engine = current_app.config['engine']
     result = engine.detect(url)
     return jsonify(result)
+
 
 @download_bp.route('/preview', methods=['POST'])
 def api_preview():
@@ -55,11 +58,13 @@ def api_preview():
                 'uploader': info.get('uploader') or info.get('channel', 'Unknown'),
                 'duration': info.get('duration'),
                 'thumbnail': info.get('thumbnail') or (
-                    info.get('thumbnails', [{}])[-1].get('url') if info.get('thumbnails') else None
+                    info.get('thumbnails', [
+                             {}])[-1].get('url') if info.get('thumbnails') else None
                 ),
                 'view_count': info.get('view_count'),
             }
     return jsonify(out)
+
 
 @download_bp.route('/info', methods=['POST'])
 def api_info():
@@ -70,6 +75,7 @@ def api_info():
     engine = current_app.config['engine']
     result = engine.get_info(url)
     return jsonify(result)
+
 
 @download_bp.route('/download', methods=['POST'])
 def api_download():
@@ -99,14 +105,17 @@ def api_download():
             result = engine.download(url, quality=quality, **kwargs)
             status = 'completed' if result.get('success') else 'failed'
             job_manager.update_job(job_id, result=result, status=status)
-            logger.info(f"Download job {job_id} finished with status {status} for {url}")
+            logger.info(
+                f"Download job {job_id} finished with status {status} for {url}")
         except Exception as e:
             logger.error(f"Download job {job_id} failed for {url}: {e}")
-            job_manager.update_job(job_id, result={'success': False, 'error': str(e)}, status='failed')
+            job_manager.update_job(
+                job_id, result={'success': False, 'error': str(e)}, status='failed')
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     return jsonify({'job_id': job_id, 'status': 'pending'})
+
 
 @download_bp.route('/batch', methods=['POST'])
 def api_batch():
@@ -140,11 +149,13 @@ def api_batch():
             results = engine.download_batch(urls, quality=quality, **kwargs)
             job_manager.update_job(job_id, results=results, status='completed')
         except Exception as e:
-            job_manager.update_job(job_id, results=[{'success': False, 'error': str(e)}], status='failed')
+            job_manager.update_job(
+                job_id, results=[{'success': False, 'error': str(e)}], status='failed')
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     return jsonify({'job_id': job_id, 'status': 'pending'})
+
 
 @download_bp.route('/job/<job_id>')
 def api_job_status(job_id):
@@ -154,11 +165,13 @@ def api_job_status(job_id):
         return error_response('Job not found', 404)
     return jsonify(job)
 
+
 @download_bp.route('/history')
 def api_history():
     job_manager = current_app.config['job_manager']
     jobs = job_manager.list_jobs(limit=50)
     return jsonify({'jobs': jobs})
+
 
 @download_bp.route('/stats')
 def api_stats():
@@ -177,6 +190,7 @@ def api_stats():
         'failed': failed,
         'platforms': platforms,
     })
+
 
 @download_bp.route('/download-track', methods=['POST'])
 def api_download_track():
@@ -204,11 +218,13 @@ def api_download_track():
     def _run():
         job_manager.update_job(job_id, status='downloading')
         try:
-            result = engine.download(download_url, quality='best', audio_only=True)
+            result = engine.download(
+                download_url, quality='best', audio_only=True)
             status = 'completed' if result.get('success') else 'failed'
             job_manager.update_job(job_id, result=result, status=status)
         except Exception as e:
-            job_manager.update_job(job_id, result={'success': False, 'error': str(e)}, status='failed')
+            job_manager.update_job(
+                job_id, result={'success': False, 'error': str(e)}, status='failed')
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

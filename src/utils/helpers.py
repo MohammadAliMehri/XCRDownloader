@@ -55,7 +55,8 @@ def is_public_http_url(url: str) -> bool:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return False
-        addresses = socket.getaddrinfo(parsed.hostname, None, type=socket.SOCK_STREAM)
+        addresses = socket.getaddrinfo(
+            parsed.hostname, None, type=socket.SOCK_STREAM)
         return bool(addresses) and all(
             ipaddress.ip_address(address[4][0]).is_global for address in addresses
         )

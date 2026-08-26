@@ -48,14 +48,17 @@ def create_app(output_dir=None):
         output_dir = config.download_dir
     app = Flask(
         __name__,
-        template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"),
-        static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static"),
+        template_folder=os.path.join(os.path.dirname(
+            os.path.dirname(__file__)), "templates"),
+        static_folder=os.path.join(os.path.dirname(
+            os.path.dirname(__file__)), "static"),
     )
     CORS(app, origins=config.cors_origins)
     app.config["OUTPUT_DIR"] = output_dir
 
     engine = DownloaderEngine(output_dir=output_dir)
-    job_manager = JobManager(max_jobs=config.max_jobs, ttl_seconds=config.job_ttl_seconds)
+    job_manager = JobManager(max_jobs=config.max_jobs,
+                             ttl_seconds=config.job_ttl_seconds)
 
     # Store engine and job manager in app config for blueprints
     app.config['engine'] = engine

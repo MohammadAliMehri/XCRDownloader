@@ -4,6 +4,7 @@ from src.web import _media_url_allowed, _safe_fetch_url, _is_allowed_relay_host
 from src.utils.helpers import is_public_http_url
 from src.anime import _is_allowed_anime_host, _ALLOWED_ANIME_HOSTS
 
+
 class TestRelayHostAllowlist:
     def test_allowed_hosts(self, allowed_relay_hosts):
         for host in allowed_relay_hosts:
@@ -12,13 +13,16 @@ class TestRelayHostAllowlist:
             assert _is_allowed_relay_host("cdn." + host) is True
 
     def test_blocked_hosts(self):
-        blocked = ["evil.com", "127.0.0.1", "localhost", "169.254.169.254", "10.0.0.1"]
+        blocked = ["evil.com", "127.0.0.1",
+                   "localhost", "169.254.169.254", "10.0.0.1"]
         for host in blocked:
             assert _is_allowed_relay_host(host) is False
 
+
 class TestMediaUrlAllowed:
     def test_valid_http(self):
-        assert _media_url_allowed("https://megaplay.buzz/stream/ani/123") is True
+        assert _media_url_allowed(
+            "https://megaplay.buzz/stream/ani/123") is True
 
     def test_invalid_scheme(self):
         assert _media_url_allowed("ftp://megaplay.buzz/") is False
@@ -37,13 +41,16 @@ class TestPublicSourceUrl:
         assert is_public_http_url("http://127.0.0.1/") is False
         assert is_public_http_url("http://localhost/") is False
 
+
 class TestAnimeHostAllowlist:
     def test_yomi_allowed(self):
         allowed = _ALLOWED_ANIME_HOSTS["yomi"]
         for host in allowed:
-            assert _is_allowed_anime_host("yomi", "https://" + host + "/path") is True
+            assert _is_allowed_anime_host(
+                "yomi", "https://" + host + "/path") is True
         # subdomain
-        assert _is_allowed_anime_host("yomi", "https://api." + allowed[0] + "/") is True
+        assert _is_allowed_anime_host(
+            "yomi", "https://api." + allowed[0] + "/") is True
 
     def test_yomi_blocked(self):
         assert _is_allowed_anime_host("yomi", "https://evil.com/") is False
@@ -51,17 +58,21 @@ class TestAnimeHostAllowlist:
     def test_aniwatchtv_allowed(self):
         allowed = _ALLOWED_ANIME_HOSTS["aniwatchtv"]
         for host in allowed:
-            assert _is_allowed_anime_host("aniwatchtv", "https://" + host + "/") is True
+            assert _is_allowed_anime_host(
+                "aniwatchtv", "https://" + host + "/") is True
 
     def test_miruro_allowed(self):
         allowed = _ALLOWED_ANIME_HOSTS["miruro"]
         for host in allowed:
-            assert _is_allowed_anime_host("miruro", "https://" + host + "/") is True
+            assert _is_allowed_anime_host(
+                "miruro", "https://" + host + "/") is True
 
     def test_f2mc_allowed(self):
         allowed = _ALLOWED_ANIME_HOSTS["f2mc"]
         for host in allowed:
-            assert _is_allowed_anime_host("f2mc", "https://" + host + "/") is True
+            assert _is_allowed_anime_host(
+                "f2mc", "https://" + host + "/") is True
+
 
 class TestSafeFetchUrl:
     def test_redirect_validation(self, monkeypatch):
@@ -73,10 +84,12 @@ class TestSafeFetchUrl:
         assert callable(_safe_fetch_url)
         # We'll rely on other tests to cover redirect logic via mocking later.
 
+
 class TestStripWrapper:
     def test_strip_wrapper_basic(self):
         from src.web import _strip_wrapper_stream
         # Create a mock response with iter_content
+
         class MockResponse:
             def iter_content(self, chunk_size):
                 yield b"x" * 300  # 252 wrapper + 48 payload
@@ -89,6 +102,7 @@ class TestStripWrapper:
 
     def test_strip_wrapper_short_first_chunk(self):
         from src.web import _strip_wrapper_stream
+
         class MockResponse:
             def iter_content(self, chunk_size):
                 yield b"x" * 100
@@ -101,6 +115,7 @@ class TestStripWrapper:
 
     def test_strip_wrapper_exact_wrapper(self):
         from src.web import _strip_wrapper_stream
+
         class MockResponse:
             def iter_content(self, chunk_size):
                 yield b"x" * 252
@@ -115,6 +130,7 @@ class TestStripWrapper:
 
     def test_strip_wrapper_no_payload(self):
         from src.web import _strip_wrapper_stream
+
         class MockResponse:
             def iter_content(self, chunk_size):
                 yield b"x" * 100  # shorter than wrapper
