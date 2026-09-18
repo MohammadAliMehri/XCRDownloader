@@ -54,15 +54,13 @@ Repository = "https://github.com/MohammadAliMehri/XCRDownloader"
 Issues = "https://github.com/MohammadAliMehri/XCRDownloader/issues"
 
 [project.scripts]
-xcrdownloader = "cli:main"
+xcrdownloader = "src.cli:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-packages = {find = {where = ["src"]}}
-include-package-data = true
+packages = ["src", "src.api", "src.anime", "src.network", "src.platforms", "src.services", "src.utils"]
 
 [tool.setuptools.package-data]
-"*" = ["templates/*", "static/*"]
+src = ["templates/*", "static/css/*", "static/js/*", "static/img/*"]
 
 [tool.ruff]
 target-version = "py310"
@@ -79,5 +77,3 @@ disallow_untyped_defs = false
 minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-v --tb=short"
-asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "function"

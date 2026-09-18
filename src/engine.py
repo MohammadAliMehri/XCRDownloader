@@ -52,13 +52,18 @@ class DownloaderEngine:
             platform = "generic"
         return self._get_downloader_instance(platform), platform
 
-    def download(self, url: str, quality: str = "best", **kwargs) -> dict:
-        """Download a single URL — auto-detects platform."""
+    def download(self, url: str, quality: str = "best", progress_cb=None, **kwargs) -> dict:
+        """Download a single URL — auto-detects platform.
+
+        progress_cb is forwarded to platform downloaders that support it
+        (currently SoundCloud) for per-track/byte progress reporting.
+        """
         downloader, platform = self.get_downloader(url)
         logger.info(
             f"Downloading {url} with platform {platform} quality {quality}")
         try:
-            result = downloader.download(url, quality=quality, **kwargs)
+            result = downloader.download(url, quality=quality,
+                                         progress_cb=progress_cb, **kwargs)
         except Exception as e:
             logger.error(f"Download error for {url}: {e}")
             result = {

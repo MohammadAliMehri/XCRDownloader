@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await (await fetch('/api/preview', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) })).json();
             const pl = platformDetect.querySelector('.pl'); if (pl) pl.remove();
             if (data.success && data.preview) showPreview(data.preview, p);
-            else if (data.error) platformDetect.innerHTML += `<span style="margin-left:12px;color:var(--warning);font-size:0.8rem">⚠ ${data.error}</span>`;
+            else if (data.error) platformDetect.innerHTML += `<span style="margin-left:12px;color:var(--warning);font-size:0.8rem">⚠ ${esc(data.error)}</span>`;
         } catch { platformDetect.innerHTML = '<span style="color:var(--error)">Failed</span>'; }
     }
 
@@ -77,8 +77,23 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (p.duration) parts.push(fmtDur(p.duration));
         if (p.view_count) parts.push(fmtNum(p.view_count) + ' views');
         previewMeta.textContent = parts.join(' · ');
-        if (p.description) { previewDesc.textContent = p.description.substring(0, 200); previewDesc.style.display = 'block'; }
-        else previewDesc.style.display = 'none';
+        if (p.kind === 'playlist') {
+            // SoundCloud set/album preview
+            const tracks = p.tracks || [];
+            previewTitle.textContent = p.title || 'Unknown playlist';
+            previewMeta.textContent = [p.uploader, `${p.track_count || tracks.length} tracks`].filter(Boolean).join(' · ');
+            if (tracks.length) {
+                previewDesc.innerHTML = tracks.slice(0, 5).map(t =>
+                    `<div class="pl-track">🎵 ${esc(t.title)}${t.duration ? ` <span class="pl-dur">${fmtDur(t.duration)}</span>` : ''}</div>`
+                ).join('') + (tracks.length > 5 ? `<div class="pl-track" style="color:var(--text-3)">… and ${tracks.length - 5} more</div>` : '');
+                previewDesc.classList.add('playlist-list');
+                previewDesc.style.display = 'block';
+            } else { previewDesc.style.display = 'none'; previewDesc.classList.remove('playlist-list'); }
+        } else {
+            previewDesc.classList.remove('playlist-list');
+            if (p.description) { previewDesc.textContent = p.description.substring(0, 200); previewDesc.style.display = 'block'; }
+            else previewDesc.style.display = 'none';
+        }
         if (platform === 'soundcloud' || platform === 'youtube_music') formatSelect.value = 'audio';
     }
     function hidePreview() { previewCard.style.display = 'none'; }
@@ -124,6 +139,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const iv = setInterval(async () => {
             try {
                 const job = await (await fetch(`/api/job/${jobId}`)).json();
+                // Live progress (per-track counts + byte % where available)
+                if (job.progress && job.status === 'downloading') {
+                    progressBar.classList.remove('indeterminate');
+                    const p = job.progress;
+                    let pct = p.pct;
+                    if (p.total) pct = Math.round((p.done / p.total) * 100);
+                    if (typeof pct === 'number' && !isNaN(pct)) {
+                        progressBar.style.width = pct + '%';
+                    }
+                    let msg = p.stage === 'processing' ? 'Processing…' : '';
+                    if (p.total) msg = `Track ${p.done + 1} / ${p.total}`;
+                    if (p.current) msg = `${msg ? msg + ' — ' : ''}${p.current}`;
+                    progressStatus.textContent = msg || 'Downloading...';
+                }
                 if (job.status === 'completed' || job.status === 'failed') {
                     clearInterval(iv);
                     progressBar.classList.remove('indeterminate');
@@ -135,13 +164,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     resetBtns(); loadHistory();
                 }
             } catch {}
-        }, 1000);
-        setTimeout(() => clearInterval(iv), 300000);
+        }, 700);
+        setTimeout(() => clearInterval(iv), 600000);
     }
 
     function showResult(r) {
         resultsSection.style.display = 'block';
-        if (!r?.success) { resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Failed</div><div class="meta" style="color:var(--error)">${r?.error||'Unknown'}</div></div></div>`; return; }
+        if (!r?.success) { resultsList.innerHTML = `<div class="result-item"><span class="result-icon">❌</span><div class="result-info"><div class="filename">Failed</div><div class="meta" style="color:var(--error)">${esc(r?.error||'Unknown')}</div></div></div>`; return; }
+        // Playlist summary (SoundCloud sets/albums)
+        if (r.playlist && r.playlist.total) {
+            const pl = r.playlist;
+            resultsList.innerHTML = '';
+            const head = document.createElement('div');
+            head.className = 'result-item playlist-summary';
+            head.innerHTML = `<span class="result-icon">💿</span><div class="result-info"><div class="filename">${esc(r.info?.title||'Playlist')}</div><div class="meta">${pl.completed} downloaded${pl.failed ? ` · ${pl.failed} failed` : ''}</div></div>`;
+            resultsList.appendChild(head);
+            for (const t of pl.tracks) {
+                const row = document.createElement('div');
+                row.className = 'result-item';
+                row.innerHTML = `<span class="result-icon">${t.success ? '🎵' : '⚠️'}</span><div class="result-info"><div class="filename">${esc(t.title)}</div>${t.error ? `<div class="meta" style="color:var(--error)">${esc(t.error)}</div>` : ''}</div><span class="result-status">${t.success ? '✅' : '❌'}</span>`;
+                resultsList.appendChild(row);
+            }
+            return;
+        }
         resultsList.innerHTML = '';
         for (const f of r.files||[]) {
             resultsList.innerHTML += `<div class="result-item fade-in"><span class="result-icon">${f.ext==='.mp4'?'🎬':'🎵'}</span><div class="result-info"><div class="filename">${f.path?.split(/[\\/]/).pop()||'File'}</div><div class="meta">${f.size_human||''}</div></div><span class="result-status">✅</span></div>`;

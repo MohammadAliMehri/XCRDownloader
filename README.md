@@ -294,8 +294,7 @@ docker-compose up -d
 
 ```
 XCRDownloader/
-├── cli.py                 # CLI entry point (+ auto Web UI launcher)
-├── run.py                 # Quick start script
+├── cli.py                 # Thin launcher (real CLI: src/cli.py)
 ├── app.py                 # WSGI entry point
 ├── pyproject.toml         # Packaging and project metadata
 ├── requirements.txt       # Python dependencies

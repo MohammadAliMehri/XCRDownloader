@@ -14,6 +14,10 @@ from urllib.request import Request, urlopen
 
 import yt_dlp
 
+from src.logging import get_logger
+
+logger = get_logger(__name__)
+
 _YT_CLIENT_SETS = [
     ["android_vr", "web_safari"],
     ["tv_downgraded", "web_safari"],
@@ -101,7 +105,8 @@ def _search_youtube(query: str, page: int = 0, music: bool = False) -> list[dict
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             data = ydl.extract_info(f"ytsearch{count}:{query}", download=False)
-    except Exception:
+    except Exception as exc:
+        logger.warning("YouTube search failed for %r: %s", query, exc)
         return []
     results = []
     for entry in (data or {}).get("entries") or []:
@@ -152,7 +157,8 @@ def _search_soundcloud(query: str, page: int = 0) -> list[dict]:
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             data = ydl.extract_info(f"scsearch15:{query}", download=False)
-    except Exception:
+    except Exception as exc:
+        logger.warning("SoundCloud search failed for %r: %s", query, exc)
         return []
     results = []
     for entry in (data or {}).get("entries") or []:
@@ -213,7 +219,8 @@ def search_music(query: str, page: int = 0, provider: str = "all") -> dict:
         futures = [pool.submit(search_provider, query, page) for search_provider in providers]
         for future in as_completed(futures):
             try: results.extend(future.result())
-            except Exception: pass
+            except Exception as exc:
+                logger.warning("Search provider failed: %s", exc)
     unique, seen = [], set()
     for result in results:
         key = f"{result['kind']}:{_squash(result['title'])}:{_squash(result['artist'])}"
@@ -299,10 +306,6 @@ def get_stream_url(source_url: str, want_video: bool = False, title: str = "", a
     except Exception:
         pass
     return {"success": False, "error": "No playable stream was found."}
-
-
-def resolve_for_download(source_url: str) -> str:
-    return source_url
 
 
 def ffmpeg_available() -> bool:

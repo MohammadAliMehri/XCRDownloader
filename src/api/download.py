@@ -102,9 +102,15 @@ def api_download():
             kwargs = {}
             if audio_only:
                 kwargs['audio_only'] = True
-            result = engine.download(url, quality=quality, **kwargs)
+
+            def _progress(p):
+                job_manager.update_job(job_id, progress=p)
+
+            result = engine.download(url, quality=quality,
+                                     progress_cb=_progress, **kwargs)
             status = 'completed' if result.get('success') else 'failed'
-            job_manager.update_job(job_id, result=result, status=status)
+            job_manager.update_job(job_id, result=result, status=status,
+                                   progress=None)
             logger.info(
                 f"Download job {job_id} finished with status {status} for {url}")
         except Exception as e:
@@ -201,13 +207,11 @@ def api_download_track():
     if not valid_source_url(source_url):
         return error_response('Provide a public HTTP(S) source URL', 400)
 
-    from src.search import resolve_for_download
-    download_url = resolve_for_download(source_url)
     job_manager = current_app.config['job_manager']
     engine = current_app.config['engine']
     job_data = {
-        'url': download_url,
-        'platform': detect_platform(download_url),
+        'url': source_url,
+        'platform': detect_platform(source_url),
         'quality': 'best',
         'result': None,
         'track_title': title,
@@ -218,10 +222,15 @@ def api_download_track():
     def _run():
         job_manager.update_job(job_id, status='downloading')
         try:
+            def _progress(p):
+                job_manager.update_job(job_id, progress=p)
+
             result = engine.download(
-                download_url, quality='best', audio_only=True)
+                source_url, quality='best', audio_only=True,
+                progress_cb=_progress)
             status = 'completed' if result.get('success') else 'failed'
-            job_manager.update_job(job_id, result=result, status=status)
+            job_manager.update_job(job_id, result=result, status=status,
+                                   progress=None)
         except Exception as e:
             job_manager.update_job(
                 job_id, result={'success': False, 'error': str(e)}, status='failed')
